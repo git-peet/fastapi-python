@@ -99,7 +99,7 @@ docker compose watch
 
 ## Local Environment Files
 
-The repository intentionally does not track local environment files. Copy `.env.example` to `.env` and replace every placeholder with values appropriate for your local environment. For host-native development, the example uses `localhost`; Docker Compose supplies service hostnames such as `db` and `mailpit` to its containers.
+The repository intentionally does not track local environment files. Copy `.env.example` to `.env` and replace every placeholder with values appropriate for your local environment. Keep the same `POSTGRES_PASSWORD` in the local database URL. For host-native development, the example uses `localhost`; Docker Compose supplies service hostnames such as `db` and `mailpit` to its containers.
 
 For Vite development, `frontend/.env.example` can be copied to `frontend/.env` if you need to override the default API URL. Both `.env` files are ignored by Git. Never commit real passwords, keys, or deployment credentials. Configure deployment secrets as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
 
