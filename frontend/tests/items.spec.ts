@@ -47,6 +47,19 @@ test.describe("Items management", () => {
     await expect(page.getByText(title)).toBeVisible()
   })
 
+  test("Create an item with a selected priority", async ({ page }) => {
+    const title = randomItemTitle()
+    const row = page.getByRole("row").filter({ hasText: title })
+
+    await page.getByRole("button", { name: "Add Item" }).click()
+    await page.getByLabel("Title").fill(title)
+    await page.getByLabel("Priority").selectOption("high")
+    await page.getByRole("button", { name: "Save" }).click()
+
+    await expect(page.getByText("Item created successfully")).toBeVisible()
+    await expect(row.getByText("High")).toBeVisible()
+  })
+
   test("Create item with only required fields", async ({ page }) => {
     const title = randomItemTitle()
 
@@ -98,6 +111,17 @@ test.describe("Items management", () => {
 
       await expect(page.getByText("Item updated successfully")).toBeVisible()
       await expect(page.getByText(updatedTitle)).toBeVisible()
+    })
+
+    test("Edit an item's priority", async ({ page }) => {
+      const itemRow = page.getByRole("row").filter({ hasText: itemTitle })
+      await itemRow.getByRole("button").last().click()
+      await page.getByRole("menuitem", { name: "Edit Item" }).click()
+      await page.getByLabel("Priority").selectOption("low")
+      await page.getByRole("button", { name: "Save" }).click()
+
+      await expect(page.getByText("Item updated successfully")).toBeVisible()
+      await expect(itemRow.getByText("Low")).toBeVisible()
     })
 
     test("Delete an item successfully", async ({ page }) => {

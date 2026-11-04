@@ -56,7 +56,13 @@ export type ItemCreate = {
      * Description
      */
     description?: string | null;
+    priority?: ItemPriority;
 };
+
+/**
+ * ItemPriority
+ */
+export type ItemPriority = 'low' | 'normal' | 'high';
 
 /**
  * ItemPublic
@@ -70,6 +76,7 @@ export type ItemPublic = {
      * Description
      */
     description?: string | null;
+    priority?: ItemPriority;
     /**
      * Id
      */
@@ -96,6 +103,7 @@ export type ItemUpdate = {
      * Description
      */
     description?: string | null;
+    priority?: ItemPriority | null;
 };
 
 /**

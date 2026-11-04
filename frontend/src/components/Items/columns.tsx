@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import { Check, Copy } from "lucide-react"
+import { AlertCircle, Check, Copy, AlertTriangle, Info } from "lucide-react"
 
 import type { ItemPublic } from "@/client"
 import type { DataTableFeatures } from "@/components/Common/DataTable"
@@ -59,6 +59,26 @@ export const columns: ColumnDef<DataTableFeatures, ItemPublic>[] = [
         >
           {description || "No description"}
         </span>
+      )
+    },
+  },
+  {
+    accessorKey: "priority",
+    header: "Priority",
+    cell: ({ row }) => {
+      const priority = row.original.priority
+      const priorityConfig = {
+        low: { icon: AlertCircle, color: "text-red-500", label: "Low" },
+        normal: { icon: Info, color: "text-blue-500", label: "Normal" },
+        high: { icon: AlertTriangle, color: "text-yellow-500", label: "High" },
+      }
+      const config = priorityConfig[priority as keyof typeof priorityConfig] || priorityConfig.normal
+      const Icon = config.icon
+      return (
+        <div className={cn("flex items-center gap-1.5 font-medium", config.color)}>
+          <Icon className="size-4" />
+          <span>{config.label}</span>
+        </div>
       )
     },
   },

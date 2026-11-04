@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -24,6 +25,42 @@ def test_create_item(
     assert "owner_id" in content
 
 
+def test_create_item_defaults_priority_to_normal(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        f"{settings.API_V1_STR}/items/",
+        headers=superuser_token_headers,
+        json={"title": "Default priority item"},
+    )
+    assert response.status_code == 200
+    assert response.json()["priority"] == "normal"
+
+
+@pytest.mark.parametrize("priority", ["low", "normal", "high"])
+def test_create_item_accepts_supported_priority(
+    client: TestClient, superuser_token_headers: dict[str, str], priority: str
+) -> None:
+    response = client.post(
+        f"{settings.API_V1_STR}/items/",
+        headers=superuser_token_headers,
+        json={"title": f"Priority {priority} item", "priority": priority},
+    )
+    assert response.status_code == 200
+    assert response.json()["priority"] == priority
+
+
+def test_create_item_rejects_unknown_priority(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        f"{settings.API_V1_STR}/items/",
+        headers=superuser_token_headers,
+        json={"title": "Invalid priority item", "priority": "urgent"},
+    )
+    assert response.status_code == 422
+
+
 def test_read_item(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
@@ -38,6 +75,19 @@ def test_read_item(
     assert content["description"] == item.description
     assert content["id"] == str(item.id)
     assert content["owner_id"] == str(item.owner_id)
+
+
+def test_update_item_priority(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    item = create_random_item(db)
+    response = client.put(
+        f"{settings.API_V1_STR}/items/{item.id}",
+        headers=superuser_token_headers,
+        json={"priority": "high"},
+    )
+    assert response.status_code == 200
+    assert response.json()["priority"] == "high"
 
 
 def test_read_item_not_found(

@@ -33,6 +33,7 @@ import { handleError } from "@/utils"
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required" }),
   description: z.string().optional(),
+  priority: z.enum(["low", "normal", "high"]),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -49,6 +50,7 @@ const AddItem = () => {
     defaultValues: {
       title: "",
       description: "",
+      priority: "normal",
     },
   })
 
@@ -102,6 +104,27 @@ const AddItem = () => {
                         {...field}
                         required
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priority</FormLabel>
+                    <FormControl>
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        {...field}
+                      >
+                        <option value="low">Low</option>
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                      </select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
