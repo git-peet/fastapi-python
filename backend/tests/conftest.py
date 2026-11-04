@@ -20,6 +20,11 @@ os.environ["PROJECT_NAME"] = "FastAPI test"
 os.environ["FIRST_SUPERUSER"] = "test-admin@example.com"
 os.environ["FIRST_SUPERUSER_PASSWORD"] = "test-only-password"
 os.environ["EMAIL_TEST_USER"] = "test-user@example.com"
+os.environ["SENTRY_DSN"] = ""
+os.environ["SMTP_HOST"] = ""
+os.environ["SMTP_USER"] = ""
+os.environ["SMTP_PASSWORD"] = ""
+os.environ["EMAILS_FROM_EMAIL"] = ""
 
 from app.api.deps import get_db  # noqa: E402
 from app.core.config import settings  # noqa: E402

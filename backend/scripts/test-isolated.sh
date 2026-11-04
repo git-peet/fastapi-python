@@ -31,6 +31,11 @@ export SECRET_KEY="fastapi-test-only-secret-key"
 export FIRST_SUPERUSER="test-admin@example.com"
 export FIRST_SUPERUSER_PASSWORD="test-only-password"
 export EMAIL_TEST_USER="test-user@example.com"
+export SENTRY_DSN=""
+export SMTP_HOST=""
+export SMTP_USER=""
+export SMTP_PASSWORD=""
+export EMAILS_FROM_EMAIL=""
 
 printf 'Using isolated test database target: %s\n' "$target"
 printf 'This script applies migrations to that database; do not point it at shared or production data.\n'
