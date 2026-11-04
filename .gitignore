@@ -14,6 +14,16 @@ __pycache__/
 .ruff_cache/
 node_modules/
 backend/app/frontend/
+backend/htmlcov/
+/openapi.json
+
+# AgenticLab and other workspace-local state are not application source.
+/AgenticLab/
+/.pi/
+/knowledge/
+/knowledge-pending/
+/implementation-logs/
+
 /test-results/
 /playwright-report/
 /blob-report/

@@ -97,11 +97,11 @@ After changing variables, make sure you restart the stack:
 docker compose watch
 ```
 
-## The `.env` File
+## Local Environment Files
 
-The tracked `.env` file contains local development defaults, passwords, and other configuration. Its hostnames use `localhost` for processes running on your machine. Docker Compose overrides hostnames such as the database and SMTP server with their Compose service names.
+The repository intentionally does not track local environment files. Copy `.env.example` to `.env` and replace every placeholder with values appropriate for your local environment. For host-native development, the example uses `localhost`; Docker Compose supplies service hostnames such as `db` and `mailpit` to its containers.
 
-Do not store deployment secrets in `.env`. Configure them as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
+For Vite development, `frontend/.env.example` can be copied to `frontend/.env` if you need to override the default API URL. Both `.env` files are ignored by Git. Never commit real passwords, keys, or deployment credentials. Configure deployment secrets as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
 
 ## Pre-commit Hooks and Code Linting
 
