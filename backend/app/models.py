@@ -1,10 +1,10 @@
-from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from pydantic import EmailStr
+from pydantic import EmailStr, field_validator
 from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel.sql.sqltypes import AutoString
 
 
 def get_datetime_utc() -> datetime:
@@ -78,7 +78,10 @@ class ItemPriority(StrEnum):
 class ItemBase(SQLModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=255)
-    priority: ItemPriority = Field(default=ItemPriority.NORMAL)
+    priority: ItemPriority = Field(
+        default=ItemPriority.NORMAL,
+        sa_type=AutoString(),
+    )
 
 
 # Properties to receive on item creation
@@ -108,6 +111,14 @@ class ItemPublic(ItemBase):
     id: uuid.UUID
     owner_id: uuid.UUID
     created_at: datetime | None = None
+
+    @field_validator("priority", mode="before")
+    @classmethod
+    def normalize_legacy_priority(cls, value: object) -> object:
+        """Normalize uppercase names stored by the earlier SQL enum mapping."""
+        if isinstance(value, str) and value in ItemPriority.__members__:
+            return ItemPriority[value]
+        return value
 
 
 class ItemsPublic(SQLModel):

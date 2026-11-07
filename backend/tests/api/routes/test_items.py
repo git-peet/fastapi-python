@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
+from app.models import Item
 from tests.utils.item import create_random_item
 
 
@@ -212,3 +213,44 @@ def test_delete_item_not_enough_permissions(
     assert response.status_code == 403
     content = response.json()
     assert content["detail"] == "Not enough permissions"
+
+
+def test_item_priority_persists_as_lowercase_string(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    for priority in ("low", "normal", "high"):
+        response = client.post(
+            f"{settings.API_V1_STR}/items/",
+            headers=superuser_token_headers,
+            json={"title": f"Priority {priority}", "priority": priority},
+        )
+        assert response.status_code == 200
+        content = response.json()
+        assert content["priority"] == priority
+
+        item = db.get(Item, uuid.UUID(content["id"]))
+        assert item is not None
+        assert item.priority == priority
+
+
+def test_legacy_uppercase_priority_is_serialized_as_lowercase(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    item = create_random_item(db)
+    item.priority = "HIGH"
+    db.add(item)
+    db.commit()
+
+    response = client.get(
+        f"{settings.API_V1_STR}/items/",
+        headers=superuser_token_headers,
+    )
+
+    assert response.status_code == 200
+    content = response.json()
+    row = next(row for row in content["data"] if row["id"] == str(item.id))
+    assert row["priority"] == "high"
