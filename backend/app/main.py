@@ -1,7 +1,10 @@
 from pathlib import Path
 
 import sentry_sdk
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
@@ -34,3 +37,19 @@ app.add_middleware(
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 app.frontend("/", directory=FRONTEND_DIR)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Avoid echoing private transcript text in validation error responses."""
+    del request
+    errors = exc.errors()
+    for error in errors:
+        if "transcript" in error.get("loc", ()):
+            error.pop("input", None)
+    return JSONResponse(
+        status_code=422,
+        content=jsonable_encoder({"detail": errors}),
+    )

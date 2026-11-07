@@ -54,7 +54,8 @@ class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
-    items: list[Item] = Relationship(back_populates="owner", cascade_delete=True)
+    items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)  # noqa: UP037
+    conversations: list["Conversation"] = Relationship(back_populates="owner", cascade_delete=True)  # noqa: UP037
 
 
 # Properties to return via API, id is always required
@@ -106,7 +107,44 @@ class Item(ItemBase, table=True):
     owner: User | None = Relationship(back_populates="items")
 
 
+# Conversation model
+class ConversationBase(SQLModel):
+    title: str = Field(min_length=1, max_length=255)
+    transcript: str = Field(min_length=1, max_length=10000)
+
+
+class ConversationCreate(ConversationBase):
+    pass
+
+
+class ConversationUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    transcript: str | None = Field(default=None, min_length=1, max_length=10000)
+
+
+class Conversation(ConversationBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_at: datetime | None = Field(default_factory=get_datetime_utc)
+    updated_at: datetime | None = Field(default_factory=get_datetime_utc)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+    )
+    owner: User | None = Relationship(back_populates="conversations")
+
+
 # Properties to return via API, id is always required
+class ConversationPublic(ConversationBase):
+    id: uuid.UUID
+    owner_id: uuid.UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ConversationsPublic(SQLModel):
+    data: list[ConversationPublic]
+    count: int
+
+
 class ItemPublic(ItemBase):
     id: uuid.UUID
     owner_id: uuid.UUID
