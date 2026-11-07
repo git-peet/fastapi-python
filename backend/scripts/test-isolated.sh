@@ -1,47 +1,68 @@
 #!/usr/bin/env bash
-# Run backend API tests only against an explicitly selected disposable PostgreSQL DB.
+# Dedicated isolated test runner - fails closed if isolation is not guaranteed.
+
 set -euo pipefail
 
+backend_dir="$(cd "$(dirname "$0")/.." && pwd)"
+cleanup_db=""
+
+cleanup() {
+    if [[ -n "$cleanup_db" && -f "$cleanup_db" ]]; then
+        echo "Cleaning up disposable test database: $cleanup_db"
+        rm -f -- "$cleanup_db"
+    fi
+}
+trap cleanup EXIT
+
+# Require explicit test database URL - no fallback to development/production.
 if [[ -z "${TEST_DATABASE_URL:-}" ]]; then
-  echo "ERROR: TEST_DATABASE_URL is required; refusing to use the application database." >&2
-  exit 2
+    echo "ERROR: TEST_DATABASE_URL not set"
+    echo "This runner requires an explicitly isolated disposable database."
+    echo "Set TEST_DATABASE_URL to a unique test database (e.g., sqlite:///auto)."
+    exit 1
 fi
 
-# Validate only URL structure and the database name; never print credentials.
-target=$(python3 - <<'PY'
-import os
-from urllib.parse import urlsplit
+# This runner destroys/recreates test tables, so only allow a disposable SQLite file.
+if [[ "$TEST_DATABASE_URL" != sqlite:///* || "$TEST_DATABASE_URL" == "sqlite:///:memory:" ]]; then
+    echo "ERROR: this runner only accepts file-backed SQLite databases."
+    echo "Use TEST_DATABASE_URL=sqlite:///auto or a new, dedicated SQLite file."
+    exit 1
+fi
 
-raw = os.environ["TEST_DATABASE_URL"]
-parsed = urlsplit(raw)
-if parsed.scheme not in {"postgresql", "postgresql+psycopg"}:
-    raise SystemExit("TEST_DATABASE_URL must use PostgreSQL")
-database = parsed.path.lstrip("/").split("/", 1)[0]
-if not database or "test" not in database.lower():
-    raise SystemExit("TEST_DATABASE_URL database name must contain 'test' as a safety check")
-print(f"{parsed.hostname or 'localhost'}:{parsed.port or 5432}/{database}")
-PY
-)
+# Generate a unique SQLite file on request, or require the supplied file to be new.
+if [[ "$TEST_DATABASE_URL" == "sqlite:///auto" ]]; then
+    TEST_DATABASE_URL="sqlite:///test_$(date +%s)_$$.db"
+    export TEST_DATABASE_URL
+fi
+if [[ "$TEST_DATABASE_URL" == sqlite:///* ]]; then
+    sqlite_path="${TEST_DATABASE_URL#sqlite:///}"
+    if [[ -e "$sqlite_path" ]]; then
+        echo "Refusing to use existing SQLite file: $sqlite_path"
+        echo "Choose a new disposable test database path."
+        exit 1
+    fi
+    cleanup_db="$sqlite_path"
+fi
 
-# Override any application defaults. FASTAPI_ENV=test disables loading the workspace .env.
-export DATABASE_URL="$TEST_DATABASE_URL"
-export FASTAPI_ENV=test
-export PROJECT_NAME="FastAPI test"
-export SECRET_KEY="fastapi-test-only-secret-key"
+echo "Running isolated tests with database: $TEST_DATABASE_URL"
+
+test_target="${1:-tests/api/routes/test_items.py}"
+if (($# > 0)); then
+    shift
+fi
+if [[ "$test_target" != /* ]]; then
+    test_target="$backend_dir/$test_target"
+fi
+
+# Run outside the repository so Pydantic cannot discover the project .env file.
+# These are test-only settings; application DB access is separately overridden
+# in tests/conftest.py to use TEST_DATABASE_URL exclusively.
+cd /tmp
+export PYTHONPATH="$backend_dir"
+export DATABASE_URL="postgresql://test:test@127.0.0.1:1/test_only"
+export SECRET_KEY="$(openssl rand -hex 32)"
+export PROJECT_NAME="Isolated API tests"
 export FIRST_SUPERUSER="test-admin@example.com"
-export FIRST_SUPERUSER_PASSWORD="test-only-password"
-export EMAIL_TEST_USER="test-user@example.com"
-export SENTRY_DSN=""
-export SMTP_HOST=""
-export SMTP_USER=""
-export SMTP_PASSWORD=""
-export EMAILS_FROM_EMAIL=""
-
-printf 'Using isolated test database target: %s\n' "$target"
-printf 'This script applies migrations to that database; do not point it at shared or production data.\n'
-
-cd "$(dirname "$0")/.."
-uv run --offline --no-sync alembic upgrade head
-uv run --offline --no-sync pytest tests/api/routes/test_items.py -v --tb=short "$@"
-
-printf 'Test database was left in place for explicit cleanup/reuse.\n'
+export FIRST_SUPERUSER_PASSWORD="$(openssl rand -hex 24)"
+export FASTAPI_ENV=development
+uv run --project "$backend_dir" pytest "$test_target" -v --tb=short "$@"
