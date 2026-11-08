@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import EmailStr, field_validator
+from sqlalchemy import CheckConstraint
 from sqlmodel import Field, Relationship, SQLModel
 from sqlmodel.sql.sqltypes import AutoString
 
@@ -122,10 +123,55 @@ class ConversationUpdate(SQLModel):
     transcript: str | None = Field(default=None, min_length=1, max_length=10000)
 
 
+class ConversationIntent(StrEnum):
+    QUESTION = "question"
+    REQUEST = "request"
+    COMPLAINT = "complaint"
+    FEEDBACK = "feedback"
+    OTHER = "other"
+
+
+class ConversationSentiment(StrEnum):
+    POSITIVE = "positive"
+    NEUTRAL = "neutral"
+    NEGATIVE = "negative"
+
+
+class ConversationNextAction(StrEnum):
+    RESPOND = "respond"
+    ASK_CLARIFYING_QUESTION = "ask_clarifying_question"
+    INVESTIGATE = "investigate"
+    ESCALATE = "escalate"
+    NO_ACTION = "no_action"
+
+
+class ConversationTriageResult(SQLModel):
+    summary: str = Field(min_length=1, max_length=500)
+    intent: ConversationIntent
+    sentiment: ConversationSentiment
+    next_action: ConversationNextAction
+
+
 class Conversation(ConversationBase, table=True):
+    __table_args__ = (
+        CheckConstraint(
+            "(triage_summary IS NULL AND triage_intent IS NULL "
+            "AND triage_sentiment IS NULL AND triage_next_action IS NULL "
+            "AND triaged_at IS NULL) OR "
+            "(triage_summary IS NOT NULL AND triage_intent IS NOT NULL "
+            "AND triage_sentiment IS NOT NULL AND triage_next_action IS NOT NULL "
+            "AND triaged_at IS NOT NULL)",
+            name="ck_conversation_triage_all_or_none",
+        ),
+    )
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     created_at: datetime | None = Field(default_factory=get_datetime_utc)
     updated_at: datetime | None = Field(default_factory=get_datetime_utc)
+    triage_summary: str | None = Field(default=None, max_length=500)
+    triage_intent: ConversationIntent | None = Field(default=None, sa_type=AutoString())
+    triage_sentiment: ConversationSentiment | None = Field(default=None, sa_type=AutoString())
+    triage_next_action: ConversationNextAction | None = Field(default=None, sa_type=AutoString())
+    triaged_at: datetime | None = None
     owner_id: uuid.UUID = Field(
         foreign_key="user.id", nullable=False, ondelete="CASCADE"
     )
@@ -138,6 +184,11 @@ class ConversationPublic(ConversationBase):
     owner_id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    triage_summary: str | None = None
+    triage_intent: ConversationIntent | None = None
+    triage_sentiment: ConversationSentiment | None = None
+    triage_next_action: ConversationNextAction | None = None
+    triaged_at: datetime | None = None
 
 
 class ConversationsPublic(SQLModel):
