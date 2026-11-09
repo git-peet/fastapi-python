@@ -16,8 +16,11 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutConversationsRouteImport } from './routes/_layout/conversations'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutConversationsIndexRouteImport } from './routes/_layout/conversations.index'
+import { Route as LayoutConversationsConversationIdRouteImport } from './routes/_layout/conversations.$conversationId'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -53,6 +56,11 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutConversationsRoute = LayoutConversationsRouteImport.update({
+  id: '/conversations',
+  path: '/conversations',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
   id: '/items',
   path: '/items',
@@ -63,6 +71,18 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutConversationsIndexRoute =
+  LayoutConversationsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutConversationsRoute,
+  } as any)
+const LayoutConversationsConversationIdRoute =
+  LayoutConversationsConversationIdRouteImport.update({
+    id: '/$conversationId',
+    path: '/$conversationId',
+    getParentRoute: () => LayoutConversationsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -71,8 +91,11 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/conversations': typeof LayoutConversationsRouteWithChildren
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
+  '/conversations/$conversationId': typeof LayoutConversationsConversationIdRoute
+  '/conversations/': typeof LayoutConversationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -83,6 +106,8 @@ export interface FileRoutesByTo {
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
   '/': typeof LayoutIndexRoute
+  '/conversations/$conversationId': typeof LayoutConversationsConversationIdRoute
+  '/conversations': typeof LayoutConversationsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,9 +117,12 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
+  '/_layout/conversations': typeof LayoutConversationsRouteWithChildren
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/conversations/$conversationId': typeof LayoutConversationsConversationIdRoute
+  '/_layout/conversations/': typeof LayoutConversationsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -105,8 +133,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/conversations'
     | '/items'
     | '/settings'
+    | '/conversations/$conversationId'
+    | '/conversations/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -117,6 +148,8 @@ export interface FileRouteTypes {
     | '/items'
     | '/settings'
     | '/'
+    | '/conversations/$conversationId'
+    | '/conversations'
   id:
     | '__root__'
     | '/_layout'
@@ -125,9 +158,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
+    | '/_layout/conversations'
     | '/_layout/items'
     | '/_layout/settings'
     | '/_layout/'
+    | '/_layout/conversations/$conversationId'
+    | '/_layout/conversations/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -189,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/conversations': {
+      id: '/_layout/conversations'
+      path: '/conversations'
+      fullPath: '/conversations'
+      preLoaderRoute: typeof LayoutConversationsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/items': {
       id: '/_layout/items'
       path: '/items'
@@ -203,11 +246,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/conversations/': {
+      id: '/_layout/conversations/'
+      path: '/'
+      fullPath: '/conversations/'
+      preLoaderRoute: typeof LayoutConversationsIndexRouteImport
+      parentRoute: typeof LayoutConversationsRoute
+    }
+    '/_layout/conversations/$conversationId': {
+      id: '/_layout/conversations/$conversationId'
+      path: '/$conversationId'
+      fullPath: '/conversations/$conversationId'
+      preLoaderRoute: typeof LayoutConversationsConversationIdRouteImport
+      parentRoute: typeof LayoutConversationsRoute
+    }
   }
 }
 
+interface LayoutConversationsRouteChildren {
+  LayoutConversationsConversationIdRoute: typeof LayoutConversationsConversationIdRoute
+  LayoutConversationsIndexRoute: typeof LayoutConversationsIndexRoute
+}
+
+const LayoutConversationsRouteChildren: LayoutConversationsRouteChildren = {
+  LayoutConversationsConversationIdRoute:
+    LayoutConversationsConversationIdRoute,
+  LayoutConversationsIndexRoute: LayoutConversationsIndexRoute,
+}
+
+const LayoutConversationsRouteWithChildren =
+  LayoutConversationsRoute._addFileChildren(LayoutConversationsRouteChildren)
+
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
+  LayoutConversationsRoute: typeof LayoutConversationsRouteWithChildren
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
@@ -215,6 +287,7 @@ interface LayoutRouteChildren {
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
+  LayoutConversationsRoute: LayoutConversationsRouteWithChildren,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutIndexRoute: LayoutIndexRoute,
