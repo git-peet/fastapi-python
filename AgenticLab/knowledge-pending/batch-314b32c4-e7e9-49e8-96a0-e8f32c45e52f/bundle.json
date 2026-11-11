@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "batchId": "batch-314b32c4-e7e9-49e8-96a0-e8f32c45e52f",
+  "records": [
+    {
+      "status": "candidate",
+      "id": "auth-settings-centralized",
+      "title": "Backend authentication configuration is centralized in Settings",
+      "category": "fact",
+      "scope": "project:exp4",
+      "source": {
+        "kind": "file",
+        "reference": "backend/app/core/config.py; backend/app/core/security.py; backend/app/api/routes/login.py; backend/app/utils.py",
+        "revision": "current working-tree snapshot; git revision unavailable"
+      },
+      "evidence": "backend/app/core/config.py defines a shared Pydantic BaseSettings instance, reads ../.env and environment variables, and declares SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES (8 days), EMAIL_RESET_TOKEN_EXPIRE_HOURS (48 hours), SMTP/sender settings, and initial-superuser settings. backend/app/core/security.py hardcodes JWT algorithm HS256 and uses SECRET_KEY. backend/app/api/routes/login.py applies the access-token lifetime; backend/app/utils.py creates/verifies reset tokens and sends email using these settings.",
+      "recorded": "2026-11-03",
+      "verified": "2026-11-03",
+      "claim": "Backend authentication and password-reset configuration is centralized in backend/app/core/config.py and exposed through the shared settings instance. It reads environment variables and ../.env. Access tokens use required SECRET_KEY and have a default lifetime of 8 days; password-reset tokens default to 48 hours. SMTP settings optionally enable recovery email. JWT algorithm HS256 is hardcoded in backend/app/core/security.py, not a configurable setting.",
+      "rationale": "This compact source-linked map is reusable for future questions about backend authentication configuration and avoids rediscovering the settings definition and the code paths that consume its key values."
+    }
+  ]
+}

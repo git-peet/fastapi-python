@@ -1,0 +1,59 @@
+{
+  "task": "PBI 3 — Add synchronous conversation triage",
+  "scope": "project:exp4",
+  "reviewedAt": "2026-11-07",
+  "planCheckpoint": "AgenticLab/knowledge/checkpoints/plan-checkpoint.json",
+  "planCheckpointDeletionDecision": "approved",
+  "deletionComplete": true,
+  "deletedAt": "2026-11-07",
+  "findings": [
+    {
+      "rank": "high",
+      "title": "Transcript edits can leave a stale triage result attached",
+      "assumption": "Stored triage remains valid after the underlying transcript is edited.",
+      "evidence": [
+        "backend/app/api/routes/conversations.py:update_conversation updates transcript and updated_at without clearing or marking triage fields stale",
+        "backend/app/api/routes/conversations.py:triage_conversation stores triage result fields separately on Conversation"
+      ],
+      "failure": "A GET can return a changed transcript with summary, intent, sentiment, and next action derived from its previous content.",
+      "detectability": "Potentially silent; response remains schema-valid and returns success.",
+      "verify": "Triage a conversation, update its transcript, then GET it and check whether the old result remains.",
+      "scopeNote": "PBI3 defines replacement after successful retriage but does not define invalidation on transcript edits. Decide whether edits clear or mark triage stale before UI consumption."
+    },
+    {
+      "rank": "medium",
+      "title": "Stored triage fields have no all-or-none invariant",
+      "assumption": "Triage fields are always either all null or all populated.",
+      "evidence": [
+        "backend/app/models.py:Conversation stores triage result components as separate nullable columns",
+        "backend/app/alembic/versions/d34f8c91a2b7_add_conversation_triage.py adds those columns as nullable",
+        "backend/app/api/routes/conversations.py:triage_conversation currently assigns all fields after validation in one commit"
+      ],
+      "failure": "A future partial update or manual database write could produce a successful response containing an incomplete triage result.",
+      "detectability": "Potentially silent to API clients that consume the response as a complete result.",
+      "verify": "Test the all-null/all-populated invariant or enforce it with a database constraint or one structured storage field.",
+      "scopeNote": "Current endpoint writes the fields together; the concern applies to future writers or out-of-band changes."
+    }
+  ],
+  "expectedLimitations": [
+    "The default implementation uses a deterministic fake and does not generate results from transcript content; this is intentional for PBI3.",
+    "Live provider behavior and frontend display are outside the approved PBI3 scope."
+  ],
+  "notChecked": [
+    "Live-provider behavior",
+    "Concurrent triage requests",
+    "Frontend display of partial or stale results",
+    "Regular application database contents"
+  ],
+  "taskLocalLearningHandoff": [
+    {
+      "title": "Derived results can become stale when their source record changes",
+      "claim": "When a derived result is stored on a mutable source record, define whether edits to the source invalidate or mark that result stale.",
+      "evidence": ["backend/app/api/routes/conversations.py:update_conversation", "backend/app/api/routes/conversations.py:triage_conversation"],
+      "scope": "project:exp4",
+      "status": "source-verified behavior; product behavior unresolved",
+      "whyReusable": "This can prevent future features from silently presenting analysis that no longer corresponds to edited source content."
+    }
+  ],
+  "durableKnowledge": "No knowledge records were written by the premortem workflow."
+}

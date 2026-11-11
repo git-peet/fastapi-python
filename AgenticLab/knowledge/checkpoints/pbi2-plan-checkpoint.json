@@ -1,0 +1,261 @@
+{
+  "phase": "plan",
+  "status": "approved",
+  "task": "PBI 2 — Add Conversation storage and CRUD API",
+  "approvedAt": "2026-11-04",
+  "scope": "project:exp4",
+  "summary": "Add an owned Conversation model with authenticated CRUD endpoints, validation, lifecycle handling, an Alembic migration, and isolated tests. No UI or triage integration.",
+  "inScope": [
+    "backend/app/models.py",
+    "backend/app/alembic/versions/",
+    "backend/app/api/routes/conversations.py",
+    "backend/app/api/main.py",
+    "backend/app/main.py",
+    "backend/app/api/deps.py",
+    "backend/tests/api/routes/test_conversations.py",
+    "backend/tests/conftest.py",
+    "backend/tests/utils/conversation.py",
+    "backend/scripts/test-isolated.sh",
+    "docs/PBI2 implementation tour.md",
+    "PBIs.md"
+  ],
+  "outOfScope": [
+    "Frontend UI",
+    "Conversation triage or external model/provider calls",
+    "Applying migrations to the application or any shared database",
+    "Transcript logging"
+  ],
+  "validation": [
+    "14 Conversation API tests passed against disposable SQLite",
+    "11 Item regression tests passed against a separate unique disposable SQLite database",
+    "Full Alembic chain applied to a fresh disposable PostgreSQL 18 database through revision 828e4a07b99e",
+    "Alembic heads reports one head; alembic check reports only the unrelated PBI1 item.priority type drift",
+    "Ruff and test-runner shell syntax checks passed"
+  ],
+  "stopConditions": [
+    "Do not inspect or migrate the application database",
+    "Stop if an isolated disposable test database is not configured",
+    "Stop if a new product or privacy decision materially expands PBI2"
+  ],
+  "decisions": [
+    "Title maximum is 255 characters and transcript maximum is 10000 characters",
+    "Conversation data is deleted when its owner is deleted",
+    "Conversation access is owner-only, including for superusers",
+    "updated_at changes on conversation updates",
+    "Transcript input is omitted from validation error details"
+  ],
+  "handoff_candidates": [
+    {
+      "id": "sqlmodel-pattern-relationships-cascade",
+      "title": "SQLModel model pattern with relationships and cascade behavior",
+      "claim": "SQLModel models use foreign-key fields and paired Relationship declarations with cascade behavior for owned resources.",
+      "evidence": ["backend/app/models.py (User and Conversation classes)"],
+      "category": "procedure",
+      "status": "proposed",
+      "notes": "Reusable for future owned resources."
+    },
+    {
+      "id": "test-isolated-sh-pattern",
+      "title": "Isolated test database pattern",
+      "claim": "The isolated API-test runner requires TEST_DATABASE_URL and redirects FastAPI's database dependency to the test engine.",
+      "evidence": ["backend/scripts/test-isolated.sh", "backend/tests/conftest.py"],
+      "category": "procedure",
+      "status": "proposed",
+      "notes": "Reusable safety pattern for API tests."
+    },
+    {
+      "id": "superuser-token-headers-fixture",
+      "title": "Authenticated API test fixture pattern",
+      "claim": "API tests can obtain authenticated request headers by logging in through the token endpoint.",
+      "evidence": ["backend/tests/conftest.py (token fixtures)"],
+      "category": "procedure",
+      "status": "proposed",
+      "notes": "Reusable for authenticated route tests."
+    },
+    {
+      "id": "alembic-migration-pattern",
+      "title": "Review Alembic types and nullability against SQLModel",
+      "claim": "Review migration column types, nullability, defaults, and revision ancestry against SQLModel metadata before applying a revision.",
+      "evidence": ["backend/app/alembic/versions/828e4a07b99e_add_conversation_model.py", "backend/app/models.py"],
+      "category": "procedure",
+      "status": "proposed",
+      "notes": "Prevents migration drift and multiple revision heads."
+    },
+    {
+      "id": "api-response-envelope-pattern",
+      "title": "API response envelope pattern {data, count}",
+      "claim": "List endpoints return a data array and count envelope, matching ItemsPublic.",
+      "evidence": ["backend/app/models.py (ItemsPublic and ConversationsPublic)"],
+      "category": "procedure",
+      "status": "proposed",
+      "notes": "Reusable for future list endpoints."
+    }
+  ],
+  "planPath": "AgenticLab/prompts/delivery/plan.md",
+  "plan": {
+    "title": "PBI 2: Add Conversation storage and CRUD API",
+    "outcome": "Add a first project-specific data resource: a Conversation model with CRUD API, ownership scoping, validation, and isolated test infrastructure. No UI is included.",
+    "scope": {
+      "planning_session": "No files changed or commands run. This plan is a reviewable document.",
+      "proposed_implementation_scope": [
+        "Add Conversation SQLModel model with id, owner_id, title, transcript, created_at, updated_at",
+        "Enforce maximum lengths: title ≤ 255 chars, transcript ≤ 10,000 chars",
+        "Add Alembic migration to create conversations table",
+        "Implement authenticated CRUD endpoints: POST /conversations, GET /conversations, GET /conversations/{id}, PUT /conversations/{id}, DELETE /conversations/{id}",
+        "Scope all operations to the authenticated owner; deny cross-user access (superuser access denied unless explicitly approved)",
+        "User deletion cascades to Conversation deletion (consistent with Item pattern)",
+        "Add validation for title/transcript lengths",
+        "Add API response envelope matching existing pattern: ConversationPublic with data and count fields",
+        "Add ConversationCreate, ConversationUpdate, ConversationPublic schemas",
+        "Add Conversation model relationship in User (optional but recommended)"
+      ],
+      "explicitly_out_of_scope": [
+        "Frontend UI for Conversations (separate PBI)",
+        "Live triage integration (separate PBI)",
+        "Transcript content logging or storage",
+        "User deletion confirmation dialogs or UX",
+        "Authentication beyond existing patterns (e.g., OAuth2, SSO)",
+        "Database indexing or performance tuning",
+        "Any other data model or API changes not directly tied to Conversation"
+      ]
+    },
+    "current_evidence_and_surface_map": {
+      "sqlmodel_patterns": "ItemBase, Item, User show ForeignKey + Relationship with ondelete=\"CASCADE\" and cascade_delete=True. User has items: list[Item] with cascade_delete=True.",
+      "ownership_scoping": "items.py routes filter list by owner_id for non-superusers; read/update/delete check item.owner_id != current_user.id → 403. Creation sets owner_id from current_user.id.",
+      "user_deletion": "users.py DELETE endpoint checks user == current_user → 403; if not superuser, deletes all items owned by user (delete(Item).where(col(Item.owner_id) == user_id)), then deletes user.",
+      "tests": "test-isolated.sh uses TEST_DATABASE_URL env var, fails-closed if unset. Tests use pytest with TEST_DATABASE_URL set to unique SQLite file. conftest_isolated.py uses test_engine, init_test_db, drop_test_db.",
+      "alembic": "env.py uses SQLModel.metadata from app.models. New migration should use op.add_column and server_default.",
+      "api_response_envelope": "ItemsPublic uses {data: list[ItemPublic], count: int}. Conversation list should follow same pattern.",
+      "test_patterns": "test_items.py uses superuser_token_headers, normal_user_token_headers, client, db fixtures. test-isolated.sh runs tests/api/routes/test_items.py."
+    },
+    "phases": [
+      {
+        "name": "Model & migration",
+        "steps": [
+          "Define Conversation model in backend/app/models.py with id, owner_id, title, transcript, created_at, updated_at",
+          "Add title: str = Field(1, 255) and transcript: str = Field(1, 10000) with validation",
+          "Add Alembic migration in backend/app/alembic/versions/ with server_default for created_at and updated_at (or handle in app)",
+          "Update User model to optionally include conversations: list[Conversation] = Relationship(..., cascade_delete=True)"
+        ]
+      },
+      {
+        "name": "API endpoints",
+        "steps": [
+          "Add conversations.py route module in backend/app/api/routes/ with: POST /conversations → create_conversation (validate lengths, set owner_id = current_user.id), GET /conversations → list_conversations (filter by owner_id = current_user.id for non-superusers), GET /conversations/{id} → get_conversation (check ownership), PUT /conversations/{id} → update_conversation (validate lengths, check ownership), DELETE /conversations/{id} → delete_conversation (check ownership, delete item)",
+          "Use existing patterns: create_item, get_item, update_item, delete_item as templates"
+        ]
+      },
+      {
+        "name": "Validation",
+        "steps": [
+          "Add ConversationCreate and ConversationUpdate Pydantic schemas with title and transcript fields",
+          "Add ConversationPublic schema for responses",
+          "Add ConversationDelete response using Message model",
+          "Add length validation in service layer or Pydantic models"
+        ]
+      },
+      {
+        "name": "Ownership & lifecycle",
+        "steps": [
+          "All list/get/update/delete operations must check conversation.owner_id == current_user.id or current_user.is_superuser",
+          "User deletion (existing) already cascades to items; Conversation will cascade-delete with its owner (no new cascade needed if conversations relationship added to User)",
+          "If conversations relationship not added to User, cascade is handled via foreign key owner_id + ondelete=\"CASCADE\" in migration"
+        ]
+      },
+      {
+        "name": "Testing",
+        "steps": [
+          "Add test_conversations.py to backend/tests/api/routes/",
+          "Use superuser_token_headers and normal_user_token_headers fixtures",
+          "Use test-isolated.sh pattern: ensure TEST_DATABASE_URL is set in test fixtures",
+          "Add tests for: valid create/update/delete by owner, 403 Forbidden for non-owner access, 404 Not Found for invalid IDs, length validation (e.g., title > 255 chars), owner deletion cascade (test item deletion when user deleted)"
+        ]
+      },
+      {
+        "name": "Validation & acceptance",
+        "steps": [
+          "Run test-isolated.sh with TEST_DATABASE_URL set to unique SQLite file",
+          "Verify all endpoint behaviors match acceptance criteria",
+          "Confirm migration applies cleanly to database",
+          "Confirm tests pass in isolated environment"
+        ]
+      }
+    ],
+    "risks_and_open_decisions": [
+      {
+        "risk": "Title/transcript length limits",
+        "proposal": "title ≤ 255 chars (matches Item.title), transcript ≤ 10,000 chars. Confirm with product."
+      },
+      {
+        "risk": "User deletion cascade",
+        "proposal": "CASCADE (consistent with Item pattern and existing User.delete behavior), but flag as a decision."
+      },
+      {
+        "risk": "Superuser access",
+        "proposal": "Deny superuser access to private Conversations unless explicitly approved. Flag as a decision."
+      },
+      {
+        "risk": "updated_at timestamp",
+        "proposal": "Add updated_at with default datetime.now(UTC) and update on PUT. Flag as a decision."
+      },
+      {
+        "risk": "conversations relationship on User",
+        "proposal": "Add conversations: list[Conversation] = Relationship(..., cascade_delete=True, back_populates=\"owner\") to User model. Flag as a decision."
+      },
+      {
+        "risk": "Testing isolation",
+        "proposal": "Ensure test-isolated.sh pattern is followed; may need to extend fixture to support new test files."
+      }
+    ],
+    "validation": "Run test-isolated.sh with TEST_DATABASE_URL set to unique SQLite file; verify all endpoint behaviors match acceptance criteria; confirm migration applies cleanly to database; confirm tests pass in isolated environment.",
+    "task_local_learning_handoff": [
+      {
+        "id": "sqlmodel-pattern-relationships-cascade",
+        "title": "SQLModel model pattern with relationships and cascade behavior",
+        "claim": "SQLModel models use Field with foreign_key, ondelete=\"CASCADE\", and Relationship with cascade_delete=True for ownership and cascade deletion patterns.",
+        "evidence": ["backend/app/models.py (User class)", "backend/app/models.py (Item class)"],
+        "category": "procedure",
+        "status": "proposed",
+        "notes": "Reusable for future owned resources."
+      },
+      {
+        "id": "test-isolated-sh-pattern",
+        "title": "Isolated test database pattern",
+        "claim": "The isolated API-test runner requires TEST_DATABASE_URL and redirects FastAPI's database dependency to the test engine.",
+        "evidence": ["backend/scripts/test-isolated.sh", "backend/tests/conftest.py"],
+        "category": "procedure",
+        "status": "proposed",
+        "notes": "Reusable safety pattern for API tests."
+      },
+      {
+        "id": "superuser-token-headers-fixture",
+        "title": "Authenticated API test fixture pattern",
+        "claim": "API tests can obtain authenticated request headers by logging in through the token endpoint.",
+        "evidence": ["backend/tests/conftest.py (token fixtures)"],
+        "category": "procedure",
+        "status": "proposed",
+        "notes": "Reusable for authenticated route tests."
+      },
+      {
+        "id": "alembic-migration-pattern",
+        "title": "Review Alembic types and nullability against SQLModel",
+        "claim": "Review migration column types, nullability, defaults, and revision ancestry against SQLModel metadata before applying a revision.",
+        "evidence": ["backend/app/alembic/versions/828e4a07b99e_add_conversation_model.py", "backend/app/models.py"],
+        "category": "procedure",
+        "status": "proposed",
+        "notes": "Prevents migration drift and multiple revision heads."
+      },
+      {
+        "id": "api-response-envelope-pattern",
+        "title": "API response envelope pattern {data, count}",
+        "claim": "List endpoints return a data array and count envelope, matching ItemsPublic.",
+        "evidence": ["backend/app/models.py (ItemsPublic and ConversationsPublic)"],
+        "category": "procedure",
+        "status": "proposed",
+        "notes": "Reusable for future list endpoints."
+      }
+    ]
+  },
+  "created_at": "2026-11-04T00:00:00Z",
+  "pbi": "PBI 2 — Add Conversation storage and CRUD API"
+}

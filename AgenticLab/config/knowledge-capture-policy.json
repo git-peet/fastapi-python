@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "pendingStagingEnabled": true,
+  "metricsEnabled": true,
+  "knowledgeReadTriggers": [],
+  "project": "exp4",
+  "scope": "project:exp4"
+}

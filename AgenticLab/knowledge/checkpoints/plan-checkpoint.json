@@ -1,0 +1,45 @@
+{
+  "phase": "plan",
+  "status": "approved",
+  "task": "PBI 3 — synchronous conversation triage",
+  "approvedAt": "2026-11-07",
+  "scope": "project:exp4",
+  "summary": "Reconcile the existing synchronous, fake-backed conversation triage implementation with PBI 3; verify the Alembic schema revision, make only changes justified by verified gaps, and validate with isolated backend tests.",
+  "inScope": [
+    "backend/app/api/routes/conversations.py",
+    "backend/app/services/triage.py",
+    "backend/app/models.py",
+    "backend/app/alembic/versions/ (inspect and modify only if the triage migration is absent or incomplete)",
+    "backend/tests/test_triage_service.py",
+    "backend/tests/api/routes/test_conversations.py",
+    "backend/tests/conftest.py",
+    "backend/scripts/test-isolated.sh"
+  ],
+  "outOfScope": [
+    "Frontend work",
+    "Live provider integration, provider credentials, external calls, or paid requests",
+    "Retry policies beyond the existing zero-retry behavior",
+    "Unrelated API or schema changes",
+    "Applying migrations to development or production databases"
+  ],
+  "validation": [
+    "Inspect the Alembic revision history and compare it with the triage model fields and all-or-none constraint.",
+    "Run backend/tests/test_triage_service.py through the isolated test runner with a disposable SQLite database.",
+    "Run backend/tests/api/routes/test_conversations.py through the isolated test runner with a disposable SQLite database.",
+    "Review the final diff for provider integration, credentials, sensitive logging, unintended files, and unsafe database targets."
+  ],
+  "stopConditions": [
+    "The migration state cannot be safely verified without touching a non-disposable database.",
+    "Source or migration evidence materially contradicts the approved scope or existing behavior.",
+    "A proposed change requires provider integration, credentials, external calls, or paid requests.",
+    "A material acceptance-criteria gap requires a new product decision."
+  ],
+  "decisions": [
+    "Treat the existing triage route, service, schema, and tests as present; reconcile and fill verified gaps instead of reimplementing them.",
+    "Keep triage synchronous, deterministic-fake-backed, and provider-free.",
+    "Keep the zero-retry policy.",
+    "Successful retriage replaces the prior result; failed retriage preserves it; changing the transcript invalidates the derived result."
+  ],
+  "handoff_candidates": [],
+  "planPath": "AgenticLab/prompts/delivery/plan.md"
+}
