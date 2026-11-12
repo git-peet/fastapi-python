@@ -19,7 +19,7 @@ ${@:-Use the approved plan already present in this conversation. If no approved 
 
 ### Plan checkpoint (transient)
 
-**Minimal context selection** — Before proceeding, call `selectContextSources` with workload `implementation`, `currentSourceNeeded: true`, and `workflowInvoked: true`. It records a content-free `context_source_selected` event automatically. Set `approvedPlanPresent: true` only after the matching approved checkpoint is verified. Set `knowledgeRelevant` or `domainPerspectiveRelevant` only when that layer could materially improve the next action. Set `projectOrientationNeeded: true` when fresh-session startup guidance requires checking `AgenticLab/PROJECT-OVERVIEW.md`; this is distinct from operating instructions and project knowledge. Use the returned source list and do not load omitted layers by default; count project orientation as used only if the overview is present and read. User request and operating instructions are always retained. Apply the stop rule: assemble what is needed for the next decision or action; stop when sufficient to proceed and verify. If insufficient, retrieve relevant evidence or ask a focused clarification. When `selectContextSources` includes `project_knowledge`, call `readKnowledgeRecords` once per distinct topic/query before source inspection, passing scope/category filters when explicitly established; only a complete `no_match`/`not_found` result supports a no-match claim. If `project_knowledge` is omitted, skip retrieval and make no no-match claim. As soon as context assembly reaches a decision point, invoke `recordContextSelectionMetric` with the actual source-layer names used, the stop-rule boolean, and an allowlisted outcome (`selected`, `complete`, `not_needed`, `no_match`, `filtered`, `incomplete`, `unavailable`, or `blocked`). Do this before proceeding and also before asking a clarification or reporting a retrieval blocker; use outcome `blocked` for that pause. The adapter rejects unknown source names and free-form outcomes. Never include source text, queries, claims, or other content in metrics.
+**Minimal context selection** — Before proceeding, call `selectContextSources` with workload `implementation`, `currentSourceNeeded: true`, and `workflowInvoked: true`. It records a content-free `context_source_selected` event automatically. Set `approvedPlanPresent: true` only after the matching approved checkpoint is verified. Set `knowledgeRelevant` or `domainPerspectiveRelevant` only when that layer could materially improve the next action. Set `projectOrientationNeeded: true` when fresh-session startup guidance requires checking `AgenticLab/PROJECT-OVERVIEW.md`; this is distinct from operating instructions and project knowledge. Use the returned source list and do not load omitted layers by default; count project orientation as used only if the overview is present and read. User request and operating instructions are always retained. Apply the stop rule: assemble what is needed for the next decision or action; stop when sufficient to proceed and verify. If insufficient, retrieve relevant evidence or ask a focused clarification. When `selectContextSources` includes `project_knowledge`, call `readKnowledgeRecords` once per distinct topic/query before source inspection, passing scope/category filters when explicitly established; only a complete `no_match`/`not_found` result supports a no-match claim. If `project_knowledge` is omitted, skip retrieval and make no no-match claim. As soon as context assembly reaches a decision point, invoke `recordContextSelectionMetric` with the actual source-layer names used, an explicit stop-rule boolean (`true` if the stop rule fired, `false` if it did not), and an allowlisted assembly outcome (`complete`, `not_needed`, `no_match`, `filtered`, `incomplete`, `unavailable`, or `blocked`). Do this before proceeding and also before asking a clarification or reporting a retrieval blocker; use outcome `blocked` for that pause. The selector records `selected` separately; never use it as an assembly outcome. The adapter rejects unknown source names, missing stop-rule values, and free-form outcomes. Never include source text, queries, claims, or other content in metrics.
 
 Before inspection, use Pi's `read` tool to read `AgenticLab/knowledge/checkpoints/plan-checkpoint.json` at workspace root. If present and its `task` matches the current invocation, treat its contents as the approved plan. Do not use shell/bash commands to check for this file — the gate blocks shell access to project knowledge. If missing, stale, or mismatched, ask the user for the approved plan and do not edit. If the checkpoint contains `handoff_candidates`, treat them as transient proposals from the approved `/plan` session—not as persistent records or permission to stage/promote. Verify each candidate's claim/evidence against current source after the required `readKnowledgeRecords` call, then deduplicate against active knowledge and pending metadata. Do not treat pending candidates as active evidence. For task-local proposals, use status `candidate`; set scope exactly to the approved checkpoint's root scope when it matches the configured policy. Never guess scope from workspace name/title/path; stop on mismatch. Use `source.kind` from `file`, `conversation`, `artifact`, or `user-decision` to match actual provenance.
 
@@ -34,9 +34,9 @@ At the end of this workflow, report clearly:
 - **Validation**: Exact focused tests/checks run and their results; state anything blocked or not run.
 - **Knowledge disposition**: Counts and IDs staged to `knowledge-pending`, promoted to active knowledge, rejected/discarded, or left task-local/pending; if none, say no candidates were proposed or relevant. Always check `AgenticLab/knowledge/checkpoints/plan-checkpoint.json` for `handoff_candidates`—never infer silently. Summarize the relevant candidate IDs and dispositions; do not dump or repeat the full checkpoint JSON.
 - **Metrics**: Relevant content-free event types/count changes, interpreted alongside tool outcomes; do not treat event counts alone as proof of complete retrieval.
-- **Checkpoint disposition**: Whether retained for `/premortem` or deleted after explicit approval.
+- **Checkpoint disposition**: Initially report as pending the user's A/B choice; after the user answers, report whether it was retained for `/premortem` or deleted after explicit approval. Never infer a choice from silence or from no deletion request.
 
-Do not delete `AgenticLab/knowledge/checkpoints/plan-checkpoint.json` during this workflow. Deletion requires explicit user approval after implementation completion.
+Do not delete `AgenticLab/knowledge/checkpoints/plan-checkpoint.json` during this workflow. Deletion requires explicit user approval after implementation completion. This gate applies to every `/implement` invocation, including test-/validation-only runs and runs with no source-file changes. You may report the task's implementation or validation as complete, but the `/implement` workflow remains pending until the user explicitly chooses A or B; no answer leaves the checkpoint unchanged.
 
 ### End-of-implementation knowledge review and disposition
 
@@ -53,12 +53,12 @@ This is an autonomous review/orchestration step, not autonomous activation: the 
 
 ### User approval gate — checkpoint deletion
 
-After reporting completion, confirm with the user:
+After reporting the implementation or validation result, always ask the user to choose one option, including for test-/validation-only runs and runs with no source-file changes:
 
 > A) Are you planning to run /premortem? If so, plan-checkpoint.json will be kept for premortem reference.
-> B) Not planning to run /premortem? plan-checkpoint.json will be deleted.
+> B) Not planning to run /premortem? I explicitly authorize deleting plan-checkpoint.json.
 
-Only proceed with deletion if the user explicitly confirms option B.
+Do not infer A from silence or from “no deletion requested.” Until the user answers, leave the checkpoint unchanged and state that workflow disposition is pending. If A is chosen, retain it. If B is explicitly chosen, delete only then. After that disposition is handled, ask the separate implementation-log approval question; do not combine the two approval gates.
 
 ### Implementation-log auto-trigger
 
@@ -71,8 +71,8 @@ After implementation completes and checkpoint disposition is handled, the workfl
    - Tests run (if any) and metrics outcomes (`no_match` counts, `candidate_staged` events, etc.)
    - Candidate disposition summary: staged to `knowledge-pending`, promoted to active, rejected/discarded, left pending, or none detected
    - Plan-checkpoint disposition (kept for premortem reference or deleted)
-4. The workflow then asks the user:
-   > "Implementation complete. Do you approve writing the implementation-log?"
+4. This approval is separate from checkpoint disposition and also applies to validation-only runs, even if no source files changed. The workflow then asks the user:
+   > "Implementation/validation complete. Do you approve writing the implementation-log?"
    > [Yes/No]
 5. If the user approves:
    - The implementation-log is written to `AgenticLab/implementation-logs/<workspace-key>/<pbi-id-slug>/implementation-log.md` directly from the `/implement` session state with user approval

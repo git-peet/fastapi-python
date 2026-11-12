@@ -101,6 +101,35 @@ test("Pi selector records the selected layers without conflating them with used 
   ]);
 });
 
+test("Pi metric tool preserves an explicit false stop-rule result", async (t) => {
+  const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "context-policy-metric-tool-"));
+  t.after(() => rm(workspaceRoot, { recursive: true, force: true }));
+  await mkdir(path.join(workspaceRoot, "AgenticLab", "config"), { recursive: true });
+  await writeFile(path.join(workspaceRoot, "AgenticLab", "config", "knowledge-capture-policy.json"), JSON.stringify({ metricsEnabled: true }));
+
+  const tools = new Map();
+  const pi = { registerTool(tool) { tools.set(tool.name, tool); }, registerCommand() {} };
+  const Type = {
+    Object: () => ({}), String: () => ({}), Literal: () => ({}), Array: () => ({}),
+    Optional: () => ({}), Boolean: () => ({}),
+  };
+  registerKnowledgeCaptureTools(pi, Type, () => ({}), { expectedRoot: workspaceRoot });
+
+  const result = await tools.get("recordContextSelectionMetric").execute("test-call", {
+    sourcesUsed: ["user_request"],
+    stopRuleFired: false,
+    outcome: "complete",
+  }, undefined, undefined, { cwd: workspaceRoot });
+  assert.equal(result.details.recorded, true);
+  const rows = (await readFile(path.join(workspaceRoot, ".pi", "metrics", "agenticlab.jsonl"), "utf8"))
+    .trim().split("\n").map((line) => JSON.parse(line));
+  assert.deepEqual(rows.map(({ event }) => event), [
+    "context_source_used", "context_stop_rule_evaluated", "context_assembly_complete",
+  ]);
+  assert.equal(rows[1].stopRuleFired, false);
+  assert.equal(rows[2].outcome, "complete");
+});
+
 test("context selection still returns a policy result when metric storage is unavailable", async (t) => {
   const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "context-policy-selector-storage-"));
   t.after(() => rm(workspaceRoot, { recursive: true, force: true }));
@@ -134,17 +163,17 @@ test("context-selection metrics serialize only allowlisted source and outcome va
     workspaceRoot,
     sourcesUsed: ["user_request", "project_knowledge", "user_request"],
     stopRuleFired: true,
-    outcome: "selected",
+    outcome: "complete",
   });
   assert.deepEqual(result, { recorded: true });
   const rows = (await readFile(path.join(workspaceRoot, ".pi", "metrics", "agenticlab.jsonl"), "utf8"))
     .trim().split("\n").map((line) => JSON.parse(line));
   assert.deepEqual(rows.map(({ event }) => event), [
-    "context_source_used", "context_stop_rule_triggered", "context_assembly_complete",
+    "context_source_used", "context_stop_rule_evaluated", "context_assembly_complete",
   ]);
   assert.deepEqual(rows[0].sourcesUsed, ["user_request", "project_knowledge"]);
   assert.equal(rows[1].stopRuleFired, true);
-  assert.equal(rows[2].outcome, "selected");
+  assert.equal(rows[2].outcome, "complete");
   assert.ok(rows.every((row) => Object.keys(row).every((key) => [
     "event", "occurredAt", "sourcesUsed", "stopRuleFired", "outcome",
   ].includes(key))));
@@ -158,16 +187,40 @@ test("context-selection metrics serialize only allowlisted source and outcome va
   const blockedRows = (await readFile(path.join(workspaceRoot, ".pi", "metrics", "agenticlab.jsonl"), "utf8"))
     .trim().split("\n").map((line) => JSON.parse(line));
   assert.deepEqual(blockedRows.slice(-3).map(({ event }) => event), [
-    "context_source_used", "context_stop_rule_triggered", "context_assembly_complete",
+    "context_source_used", "context_stop_rule_evaluated", "context_assembly_complete",
   ]);
   assert.equal(blockedRows.at(-1).outcome, "blocked");
   assert.equal(blockedRows.at(-2).stopRuleFired, true);
 
+  await recordContextSelectionMetric({
+    workspaceRoot,
+    sourcesUsed: ["user_request", "operating_instructions"],
+    stopRuleFired: false,
+    outcome: "complete",
+  });
+  const notTriggeredRows = (await readFile(path.join(workspaceRoot, ".pi", "metrics", "agenticlab.jsonl"), "utf8"))
+    .trim().split("\n").map((line) => JSON.parse(line));
+  assert.equal(notTriggeredRows.at(-2).event, "context_stop_rule_evaluated");
+  assert.equal(notTriggeredRows.at(-2).stopRuleFired, false);
+
   await assert.rejects(recordContextSelectionMetric({
-    workspaceRoot, sourcesUsed: ["raw user request content"],
+    workspaceRoot, sourcesUsed: ["user_request"], stopRuleFired: true, outcome: "selected",
+  }), /outcome is not allowlisted/u);
+  await assert.rejects(recordContextSelectionMetric({
+    workspaceRoot, sourcesUsed: ["user_request"], outcome: "complete",
+  }), /stopRuleFired must be a boolean/u);
+
+  await assert.rejects(recordContextSelectionMetric({
+    workspaceRoot,
+    sourcesUsed: ["raw user request content"],
+    stopRuleFired: true,
+    outcome: "complete",
   }), /allowlisted context source names/u);
   await assert.rejects(recordContextSelectionMetric({
-    workspaceRoot, outcome: "the user asked for a password reset",
+    workspaceRoot,
+    sourcesUsed: ["user_request"],
+    stopRuleFired: true,
+    outcome: "the user asked for a password reset",
   }), /outcome is not allowlisted/u);
   await assert.rejects(recordKnowledgeCaptureMetric("context_source_used", {
     workspaceRoot, sourcesUsed: ["sensitive arbitrary text"],
@@ -181,7 +234,10 @@ test("context-selection metrics serialize only allowlisted source and outcome va
   await mkdir(path.join(disabledRoot, "AgenticLab", "config"), { recursive: true });
   await writeFile(path.join(disabledRoot, "AgenticLab", "config", "knowledge-capture-policy.json"), JSON.stringify({ metricsEnabled: false }));
   assert.deepEqual(await recordContextSelectionMetric({
-    workspaceRoot: disabledRoot, sourcesUsed: ["user_request"], outcome: "selected",
+    workspaceRoot: disabledRoot,
+    sourcesUsed: ["user_request"],
+    stopRuleFired: false,
+    outcome: "complete",
   }), { recorded: false, reason: "metrics-disabled" });
 
   const failingRoot = await mkdtemp(path.join(os.tmpdir(), "context-policy-storage-failure-"));
@@ -191,6 +247,9 @@ test("context-selection metrics serialize only allowlisted source and outcome va
   await mkdir(path.join(failingRoot, ".pi"), { recursive: true });
   await writeFile(path.join(failingRoot, ".pi", "metrics"), "not a directory");
   await assert.rejects(recordContextSelectionMetric({
-    workspaceRoot: failingRoot, sourcesUsed: ["user_request"], outcome: "selected",
+    workspaceRoot: failingRoot,
+    sourcesUsed: ["user_request"],
+    stopRuleFired: false,
+    outcome: "complete",
   }));
 });

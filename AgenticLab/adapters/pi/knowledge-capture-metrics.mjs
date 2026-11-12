@@ -10,7 +10,7 @@ const ALLOWED_EVENTS = new Set([
   "no_match",
   "context_source_selected",
   "context_source_used",
-  "context_stop_rule_triggered",
+  "context_stop_rule_evaluated",
   "context_assembly_complete"
 ]);
 
@@ -20,8 +20,7 @@ const ALLOWED_EVENTS = new Set([
  */
 const ALLOWED_CONTEXT_SOURCES = new Set(CONTEXT_SOURCES);
 
-const ALLOWED_CONTEXT_OUTCOMES = new Set([
-  "selected",
+export const CONTEXT_ASSEMBLY_OUTCOMES = Object.freeze([
   "complete",
   "not_needed",
   "no_match",
@@ -31,17 +30,19 @@ const ALLOWED_CONTEXT_OUTCOMES = new Set([
   "blocked"
 ]);
 
+const ALLOWED_CONTEXT_OUTCOMES = new Set(CONTEXT_ASSEMBLY_OUTCOMES);
+
 /**
  * Allowed context-selection events (content-free, event-based)
  * - context_source_selected: source layers selected by policy
  * - context_source_used: source layers actually used in context assembly
- * - context_stop_rule_triggered: stop rule triggered during assembly
+ * - context_stop_rule_evaluated: stop-rule evaluation, recorded as a boolean
  * - context_assembly_complete: final context assembly state
  */
 const ALLOWED_CONTEXT_EVENTS = new Set([
   "context_source_selected",
   "context_source_used",
-  "context_stop_rule_triggered",
+  "context_stop_rule_evaluated",
   "context_assembly_complete"
 ]);
 
@@ -71,7 +72,7 @@ export async function recordKnowledgeCaptureMetric(event, opts = {}) {
   const contextFields = {
     context_source_selected: ["sourcesUsed"],
     context_source_used: ["sourcesUsed"],
-    context_stop_rule_triggered: ["stopRuleFired"],
+    context_stop_rule_evaluated: ["stopRuleFired"],
     context_assembly_complete: ["outcome"],
   };
   const allowedFields = new Set(["workspaceRoot", ...(ALLOWED_CONTEXT_EVENTS.has(event) ? contextFields[event] : [])]);
@@ -83,10 +84,10 @@ export async function recordKnowledgeCaptureMetric(event, opts = {}) {
       || opts.sourcesUsed.some((source) => !ALLOWED_CONTEXT_SOURCES.has(source))) {
       throw new Error("context sources must be non-empty allowlisted source-layer names");
     }
-  } else if (event === "context_stop_rule_triggered") {
+  } else if (event === "context_stop_rule_evaluated") {
     if (typeof opts.stopRuleFired !== "boolean") throw new Error("stopRuleFired must be a boolean");
   } else if (event === "context_assembly_complete") {
-    if (opts.outcome !== undefined && opts.outcome !== null && !ALLOWED_CONTEXT_OUTCOMES.has(opts.outcome)) {
+    if (!ALLOWED_CONTEXT_OUTCOMES.has(opts.outcome)) {
       throw new Error("context outcome is not allowlisted");
     }
   }
@@ -101,10 +102,8 @@ export async function recordKnowledgeCaptureMetric(event, opts = {}) {
   if (event === "context_source_selected" || event === "context_source_used") {
     payload.sourcesUsed = [...new Set(opts.sourcesUsed)];
   }
-  if (event === "context_stop_rule_triggered") payload.stopRuleFired = opts.stopRuleFired;
-  if (event === "context_assembly_complete" && opts.outcome !== null && opts.outcome !== undefined) {
-    payload.outcome = opts.outcome;
-  }
+  if (event === "context_stop_rule_evaluated") payload.stopRuleFired = opts.stopRuleFired;
+  if (event === "context_assembly_complete") payload.outcome = opts.outcome;
   const line = `${JSON.stringify(payload)}\n`;
   const handle = await fs.open(logPath, fsConstants.O_WRONLY | fsConstants.O_APPEND | fsConstants.O_CREAT, 0o600);
   try {
@@ -118,8 +117,8 @@ export async function recordKnowledgeCaptureMetric(event, opts = {}) {
 
 /**
  * Record a context-selection metric. Content-free: only source-layer names,
- * boolean stop-rule flag, and optional outcome string. Delegates to the core
- * metric writer (policy gate, allowlist, JSONL append).
+ * a required boolean stop-rule result, and a required allowlisted outcome.
+ * Delegates to the core metric writer (policy gate, allowlist, JSONL append).
  */
 export async function recordContextSelectionMetric(opts = {}) {
   if (opts === null || typeof opts !== "object" || Array.isArray(opts)) {
@@ -129,14 +128,14 @@ export async function recordContextSelectionMetric(opts = {}) {
   if (Object.keys(opts).some((key) => !allowedKeys.has(key))) {
     throw new Error("context-selection metric input contains an unsupported field");
   }
-  const { sourcesUsed = [], stopRuleFired = null, outcome = null, workspaceRoot = "." } = opts;
+  const { sourcesUsed = [], stopRuleFired, outcome, workspaceRoot = "." } = opts;
   if (!Array.isArray(sourcesUsed) || sourcesUsed.length > 10 || sourcesUsed.some((source) => !ALLOWED_CONTEXT_SOURCES.has(source))) {
     throw new Error("sourcesUsed must contain only allowlisted context source names");
   }
-  if (stopRuleFired !== null && typeof stopRuleFired !== "boolean") {
-    throw new Error("stopRuleFired must be a boolean or null");
+  if (typeof stopRuleFired !== "boolean") {
+    throw new Error("stopRuleFired must be a boolean");
   }
-  if (outcome !== null && outcome !== undefined && !ALLOWED_CONTEXT_OUTCOMES.has(outcome)) {
+  if (!ALLOWED_CONTEXT_OUTCOMES.has(outcome)) {
     throw new Error("context outcome is not allowlisted");
   }
   let result;
@@ -146,12 +145,10 @@ export async function recordContextSelectionMetric(opts = {}) {
     result = await recordKnowledgeCaptureMetric("context_source_used", { workspaceRoot, sourcesUsed });
   }
 
-  // Record if stop rule was triggered
-  if (stopRuleFired !== null) {
-    result = await recordKnowledgeCaptureMetric("context_stop_rule_triggered", { workspaceRoot, stopRuleFired });
-  }
+  // Record the boolean stop-rule evaluation, including false results.
+  result = await recordKnowledgeCaptureMetric("context_stop_rule_evaluated", { workspaceRoot, stopRuleFired });
 
-  // Final assembly complete
+  // Final assembly complete with a required, allowlisted outcome.
   result = await recordKnowledgeCaptureMetric("context_assembly_complete", { workspaceRoot, outcome });
   return result;
 }

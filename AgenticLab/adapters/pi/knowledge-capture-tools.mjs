@@ -17,7 +17,7 @@ import {
   validateCandidate,
   validateCandidateBatch,
 } from "./knowledge-capture-core.mjs";
-import { recordContextSelectionMetric, recordKnowledgeCaptureMetric } from "./knowledge-capture-metrics.mjs";
+import { CONTEXT_ASSEMBLY_OUTCOMES, recordContextSelectionMetric, recordKnowledgeCaptureMetric } from "./knowledge-capture-metrics.mjs";
 import { CONTEXT_WORKLOADS, selectContextSources } from "./context-source-policy.mjs";
 
 const REVIEW_TTL_MS = 30 * 60 * 1000;
@@ -535,20 +535,19 @@ export function registerKnowledgeCaptureTools(pi, Type, StringEnum, { expectedRo
   pi.registerTool({
     name: "recordContextSelectionMetric",
     label: "Record context-selection metric",
-    description: "Record a content-free context-selection metric for the current context assembly. Accepts an array of source-layer names, an optional boolean stop-rule flag, and an optional outcome string. Emits context_source_used, context_stop_rule_triggered, and context_assembly_complete events via the knowledge-capture metrics writer. Content-free only; never records source text or claims.",
+    description: "Record a content-free context-selection metric for the current context assembly. Accepts actual source-layer names, a required stop-rule boolean (true or false), and a required allowlisted assembly outcome. Emits context_source_used, context_stop_rule_evaluated, and context_assembly_complete events. Content-free only; never records source text or claims.",
     parameters: Type.Object({
       sourcesUsed: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 64 }), { maxItems: 10 })),
-      stopRuleFired: Type.Optional(Type.Boolean()),
-      outcome: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+      stopRuleFired: Type.Boolean(),
+      outcome: StringEnum(CONTEXT_ASSEMBLY_OUTCOMES),
     }, { additionalProperties: false }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const { sourcesUsed, stopRuleFired, outcome, workspaceRoot } = params || {};
       const sources = Array.isArray(sourcesUsed) ? sourcesUsed.filter((s) => typeof s === "string" && s.length > 0 && s.length <= 64) : [];
-      const stop = stopRuleFired === true;
       const result = await recordContextSelectionMetric({
         sourcesUsed: sources,
-        stopRuleFired: stop ? true : null,
-        outcome: outcome || null,
+        stopRuleFired,
+        outcome,
         workspaceRoot: ctx?.cwd || ".",
       });
       return textResult(JSON.stringify({ recorded: result.recorded, reason: result.reason ?? null }), result);
