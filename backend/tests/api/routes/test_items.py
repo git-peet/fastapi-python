@@ -26,6 +26,25 @@ def test_create_item(
     assert "owner_id" in content
 
 
+def test_api_requests_use_isolated_test_database(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    title = "Isolated database override regression"
+    response = client.post(
+        f"{settings.API_V1_STR}/items/",
+        headers=superuser_token_headers,
+        json={"title": title},
+    )
+
+    assert response.status_code == 200
+    item_id = uuid.UUID(response.json()["id"])
+    item = db.get(Item, item_id)
+    assert item is not None
+    assert item.title == title
+
+
 def test_create_item_defaults_priority_to_normal(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
