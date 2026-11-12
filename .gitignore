@@ -7,7 +7,6 @@
 !.env.example
 
 # Workspace-local AgenticLab installation and project knowledge/state
-/AgenticLab/
 /.pi/
 /knowledge/
 /knowledge-pending/
@@ -32,7 +31,6 @@ backend/htmlcov/
 /openapi.json
 
 # AgenticLab and other workspace-local state are not application source.
-/AgenticLab/
 /.pi/
 /knowledge/
 /knowledge-pending/

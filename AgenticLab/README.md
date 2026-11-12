@@ -1,12 +1,12 @@
 # AgenticLab — exp4 Workspace Payload
 
-This directory is the **initialized, project-specific AgenticLab payload** for the `exp4` workspace (`/home/peet/Projects/exp4`). It is not a generic distribution — it contains live project knowledge, scope profiles, checkpoints, implementation logs, and the C03 context-selection metrics slice.
+This directory is the **initialized, project-specific AgenticLab payload** for the `exp4` workspace (`/home/peet/Projects/exp4`). It is not a generic distribution — it contains live project knowledge, scope profiles, checkpoints, implementation logs, and the C03 context-selection policy and metrics slice.
 
 ## Contents
 
 - `AGENTS.md` — operating and safety instructions for this workspace.
 - `brain/` — portable operating and knowledge contracts.
-- `adapters/pi/` — the optional Pi knowledge-capture and write-gate integration, extended with C03 context-selection metrics (`recordContextSelectionMetric` helper and Pi tool).
+- `adapters/pi/` — the optional Pi knowledge-capture and write-gate integration, extended with the C03 `selectContextSources` policy tool and allowlisted context-selection metrics (`recordContextSelectionMetric`).
 - `config/knowledge-capture-policy.json` — the rendered workspace policy. Metrics are enabled (`metricsEnabled: true`); candidate staging remains off.
 - `knowledge/` — populated with `INDEX.md`, `MOC.md`, maps, and active records. Records are project-scoped (`project:exp4`).
 - `knowledge-pending/` — private staging queue for reviewed candidates.
@@ -20,7 +20,7 @@ This directory is the **initialized, project-specific AgenticLab payload** for t
 
 - **Initialized** — project scope is `project:exp4`, project identity is `AgenticLab v5 exp4`.
 - **Knowledge records active** — see `knowledge/INDEX.md` for the full list.
-- **C03 context-selection metrics** — the `recordContextSelectionMetric` Pi tool is registered and emits content-free events (`context_source_used`, `context_stop_rule_triggered`, `context_assembly_complete`) to `.pi/metrics/agenticlab.jsonl` during `/plan` and `/implement` sessions.
+- **C03 context-source policy and metrics** — `selectContextSources` applies generic source-layer inclusion rules by workload and explicit orientation need, and emits `context_source_selected`; `recordContextSelectionMetric` records actual sources, stop-rule state, and outcome using allowlisted content-free values. A `/plan`-scoped Pi guard blocks shell commands while planning; `/plan-cancel` clears the guard if that workflow is abandoned. Knowledge retrieval separately enforces workspace/task scope, active lifecycle status, and supersession.
 - **PBI 3 (synchronous conversation triage)** — already implemented; verified via isolated tests (9 service + 22 API tests passing).
 - **PBI 4 (conversations UI)** — implemented.
 - **PBI 1 (priority enum)** — implemented.

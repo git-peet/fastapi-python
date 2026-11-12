@@ -18,6 +18,7 @@ import {
   validateCandidateBatch,
 } from "./knowledge-capture-core.mjs";
 import { recordContextSelectionMetric, recordKnowledgeCaptureMetric } from "./knowledge-capture-metrics.mjs";
+import { CONTEXT_WORKLOADS, selectContextSources } from "./context-source-policy.mjs";
 
 const REVIEW_TTL_MS = 30 * 60 * 1000;
 const MAX_REVIEWS = 32;
@@ -494,6 +495,40 @@ export function registerKnowledgeCaptureTools(pi, Type, StringEnum, { expectedRo
       } catch (error) {
         notify(ctx, `Could not revoke pilot candidate staging: ${error.message}`, "error");
       }
+    },
+  });
+
+  pi.registerTool({
+    name: "selectContextSources",
+    label: "Select context sources by policy",
+    description: "Apply the generic context-source inclusion policy for a task family. Always includes the user request and operating instructions; includes other layers only when their explicit relevance/workflow signals apply. Knowledge retrieval still enforces configured project/task scope, active status, and supersession independently. Emits a content-free context_source_selected event; record actual sources later with recordContextSelectionMetric.",
+    parameters: Type.Object({
+      workload: StringEnum(CONTEXT_WORKLOADS),
+      currentSourceNeeded: Type.Optional(Type.Boolean()),
+      knowledgeRelevant: Type.Optional(Type.Boolean()),
+      domainPerspectiveRelevant: Type.Optional(Type.Boolean()),
+      projectOrientationNeeded: Type.Optional(Type.Boolean()),
+      workflowInvoked: Type.Optional(Type.Boolean()),
+      approvedPlanPresent: Type.Optional(Type.Boolean()),
+      meaningfulFinding: Type.Optional(Type.Boolean()),
+    }, { additionalProperties: false }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const selection = selectContextSources(params);
+      let metric = { recorded: false, reason: "metrics-unavailable" };
+      try {
+        metric = await recordKnowledgeCaptureMetric("context_source_selected", {
+          workspaceRoot: ctx?.cwd || ".",
+          sourcesUsed: selection.sources,
+        });
+      } catch {
+        // Selection still succeeds if optional metrics storage is unavailable.
+      }
+      const result = {
+        ...selection,
+        metricsRecorded: metric.recorded,
+        ...(metric.reason ? { metricReason: metric.reason } : {}),
+      };
+      return textResult(JSON.stringify(result), result);
     },
   });
 
