@@ -1,16 +1,29 @@
 # exp4 — Proposed PBIs
 
-**Status:** Living learning/product plan. PBI1 is implemented in the exp4 source and recorded in the local `fastapi-python` repository; its disposable-database verification is still pending. PBIs 2+ remain proposals, not authorization to implement. Approve a bounded plan before each new PBI.
+**Status:** Reconciled 2026-11-13 under `EXP4-PBI-RECON-20261113-001`. Per user decision, PBIs 1–4 are closed to further work; any remaining verification gaps, temporary state, or unresolved decisions are non-blocking leftovers, not open scope. Do not reopen these PBIs; any follow-up requires a new PBI and approval. PBIs 5–6 are deferred. PBIs 7–9 below are candidate proposals only, not implementation authorization. Approve a bounded plan before each new PBI.
 
-## Proposed sequence
+### Reconciliation record — EXP4-PBI-RECON-20261113-001
 
-1. Add a small field to the template's `Item` resource as a full-stack vertical slice.
-2. Add an owned `Conversation` resource and CRUD API.
-3. Add synchronous conversation triage behind a fakeable client interface.
-4. Add the Conversations UI and triage interaction.
-5. Add content-free usage accounting after the provider boundary is decided.
-6. Consider asynchronous triage only if synchronous behavior shows a real need.
-7. Treat document embeddings/vector search as a separate future Project 2 discovery.
+- **Recorded:** 2026-11-13T16:58:09+01:00
+- **Decision:** Treat PBI1–PBI4 as completed and closed for active work. Residuals are leftovers; do not resume implementation under those PBIs.
+- **Known leftover:** PBI1's disposable-PostgreSQL verification was not completed. This does not reopen PBI1; address it only under a newly approved PBI if still needed.
+- **PBI2 validation:** The final validation-only rerun passed 22/22 Conversation CRUD tests with the isolated disposable-database runner. No source or persistent database changes were made in that run.
+- **Boundary:** This is a planning/status reconciliation, not authorization for further PBI1–PBI4 implementation.
+
+## Completed sequence and future candidates
+
+1. **Completed — PBI 1:** Add a small field to the template's `Item` resource as a full-stack vertical slice. Disposable-PostgreSQL verification remains a non-blocking leftover.
+2. **Completed — PBI 2:** Add an owned `Conversation` resource and CRUD API.
+3. **Completed — PBI 3:** Add synchronous conversation triage behind a fakeable client interface; live-provider integration remains excluded.
+4. **Completed — PBI 4:** Add the Conversations UI and triage interaction.
+5. **Deferred — PBI 5:** Content-free usage accounting awaits an approved provider boundary.
+6. **Deferred — PBI 6:** Asynchronous triage awaits measured latency/reliability need.
+7. **Candidate — PBI 7:** Owner-scoped conversation search and pagination.
+8. **Candidate — PBI 8:** Export one owned conversation in a documented format.
+9. **Candidate — PBI 9:** Record structured user feedback on the current triage result.
+10. **Candidate — PBI 10:** Add a deterministic delivery-plan preflight validator.
+
+Document embeddings/vector search remain a separate future Project 2 discovery.
 
 ## Learning approach for every PBI
 
@@ -22,7 +35,7 @@
 
 ## PBI 1 — Add priority to demo items
 
-**Status:** Implemented in exp4; the source changes are published in `fastapi-python` commit `3b53690`. Backend/API and Playwright tests were added but have not been run against a disposable PostgreSQL database, so verification remains pending. The revised exp4 implementation tour separates reproducible source/migration changes from one-off local database actions.
+**Status:** Closed per `EXP4-PBI-RECON-20261113-001`. Implementation is complete and published in `fastapi-python` commit `3b53690`. Backend/API and Playwright tests were added, but disposable-PostgreSQL verification remains a non-blocking leftover; PBI1 will not be reopened for it.
 
 ### Learning outcomes
 - Trace a Python `StrEnum` and SQLModel field through request/response schemas and a database migration.
@@ -47,7 +60,7 @@ Use `low`, `normal`, and `high`, with `normal` as the default. Unknown values ar
 
 ## PBI 2 — Add Conversation storage and CRUD API
 
-**Status:** Implementation complete and verified in exp4; implementation-log approval is pending. See `docs/PBI2 implementation tour.md`; the migration applied successfully to a fresh disposable PostgreSQL database and isolated API tests passed.
+**Status:** Closed per `EXP4-PBI-RECON-20261113-001`. Implementation and isolated verification are complete. See `docs/PBI2 implementation tour.md`; the migration applied to a fresh disposable PostgreSQL database, isolated API tests passed, and the final validation-only Conversation CRUD rerun passed 22/22. No further work is authorized under PBI2.
 
 ### Recommended learning slices
 1. **Model and migration:** define a minimal owned Conversation model, its SQLModel/Pydantic schemas, and a migration; add model/schema tests.
@@ -75,7 +88,7 @@ As a signed-in user, I want to create and manage conversations that I own, so th
 
 ## PBI 3 — Add synchronous conversation triage
 
-**Status:** Draft for review; no live model/provider integration is included.
+**Status:** Closed per `EXP4-PBI-RECON-20261113-001`. Synchronous fake-client triage was implemented in exp4; live model/provider integration remains explicitly excluded and is not an open PBI3 item.
 
 ### Recommended learning slices
 1. **Contract and fake client:** define the triage result schema and a deterministic fake-client interface; test valid and invalid results without an API route or provider.
@@ -100,7 +113,7 @@ As a signed-in user, I want to request a structured triage of a conversation I o
 
 ## PBI 4 — Add the Conversations UI
 
-**Status:** Draft for review; depends on PBI 2, with triage controls depending on PBI 3.
+**Status:** Closed per `EXP4-PBI-RECON-20261113-001`. The Conversations UI and triage interaction were implemented in exp4. Any remaining polish or decisions are leftovers and require a new PBI to resume.
 
 ### Learning outcomes
 - This is primarily a TypeScript/React learning slice; connect UI actions to the generated API client and existing TanStack Query patterns.
@@ -120,7 +133,7 @@ As a signed-in user, I want to create, find, and review my conversations and the
 
 ## PBI 5 — Add content-free triage usage accounting
 
-**Status:** Draft for review; depends on the triage client/provider contract. A live provider is not implicitly approved by this PBI.
+**Status:** Deferred. Revisit only after a provider boundary is explicitly approved; a live provider is not implicitly approved by this PBI.
 
 ### User story
 As an administrator, I want to review aggregate triage usage and latency without seeing conversation content, so that I can monitor cost and performance.
@@ -148,6 +161,70 @@ As a user, I want long-running triage to complete reliably in the background, so
 - The UI polls or refreshes status without duplicate submissions, unbounded requests, or leaking another user's status.
 - Tests cover successful completion, terminal failure, retry bounds, duplicate requests, and owner isolation.
 - Any new service/dependency or deployment change requires a separate scope and validation plan.
+
+## PBI 7 — Add owner-scoped conversation search and pagination
+
+**Status:** Candidate for review; not approved for implementation.
+
+**C03 evaluation marker for its first plan/implement run:** `C03-EVAL-ID: EXP4-C03-PBI7-001`. Include this exact marker in the explicit `/plan` task context to opt into one sanitized evaluation card under the approved plan scope; the marker does not authorize implementing this PBI.
+
+### User story
+As a signed-in user with many conversations, I want to search and navigate my conversation list, so that I can find a specific conversation without loading an unbounded list.
+
+### Candidate acceptance criteria
+- Add bounded, owner-scoped title search; transcript full-text search is out of scope unless separately approved.
+- Use the existing `skip`/`limit` API contract or propose a bounded cursor alternative; define maximum page size and deterministic ordering before implementation.
+- Ensure both the filtered result count and page results are scoped to the authenticated owner.
+- Update the Conversations list UI with search, pagination, loading, empty, and error states; reset pagination when the query changes.
+- Add backend tests for filtering, pagination boundaries, stable ordering, and cross-owner isolation, plus focused UI tests.
+- Do not log raw search text or return another user's conversations.
+
+## PBI 8 — Export an owned conversation
+
+**Status:** Candidate for review; not approved for implementation.
+
+### User story
+As a signed-in user, I want to download a copy of a conversation I own, so that I can keep or move my data outside the application.
+
+### Candidate acceptance criteria
+- Export one conversation at a time in a documented JSON format, including only explicitly selected conversation fields and current triage metadata.
+- Require ownership authorization; cross-user access follows the existing 403/404 policy.
+- Bound export size and use a safe download filename/content type; never log transcript or triage content.
+- Provide a UI action and clear loading/error behavior.
+- Add tests for format, size limits, ownership isolation, and absence of database mutation.
+- Bulk export, import, external storage, and scheduled retention are out of scope.
+
+## PBI 9 — Capture structured feedback on triage results
+
+**Status:** Candidate for review; not approved for implementation.
+
+### User story
+As a signed-in user, I want to mark whether a conversation's current triage was useful, so that I can distinguish reviewed results from unreviewed ones and inform later product decisions.
+
+### Candidate acceptance criteria
+- Allow feedback only for the current triage result on a conversation owned by the caller; start with controlled values such as `helpful` and `not_helpful`, not free text.
+- Define how feedback relates to the triage result timestamp/version and whether transcript edits or re-triage clear prior feedback before implementation.
+- Display and update the feedback in the conversation detail UI without implying a live model or changing the triage result.
+- Test ownership, missing/stale triage, feedback replacement/clearing behavior, and UI states.
+- Do not send feedback or conversation content to an external provider; any aggregate usage reporting remains under the separate PBI 5.
+
+## PBI 10 — Add deterministic delivery-plan preflight validator
+
+**Status:** Candidate for review; not approved for implementation.
+
+### User story
+As a developer using the delivery workflows, I want a lightweight plan preflight before plan presentation to catch missing opt-in markers, scope/outcome conflicts, unverified validation targets, and inconsistent open-decision statements, so that a normal PBI plus an optional C03-EVAL-ID produces an accurate, reviewable plan in one pass.
+
+### Candidate acceptance criteria
+- Add a preflight check in the `/plan` flow that runs before final plan presentation.
+- If a PBI reference is supplied, resolve any `C03-EVAL-ID` marker from the PBI entry and carry it into the plan and checkpoint.
+- Verify plan outcome, scope, and exclusions are mutually consistent; planning-session no-change/no-test restrictions must not be misread as future-implementation prohibitions.
+- Verify referenced source paths and validation commands against actual repository files before finalizing the plan.
+- Verify open design decisions are labeled open rather than closed; do not emit a "None" outcome while decisions remain open.
+- Include the scoped C03 evaluation-card append in `/implement` scope when a marker is present; do not present a marker-less plan for a marked task.
+- If any preflight check fails, withhold the plan and present only the identified gaps.
+- Add regression tests for the preflight behavior without adding synthetic PBI stages.
+- Out of scope: permanent telemetry, automatic plan rewriting, or broad workflow re-architecture.
 
 ## Future Project 2 — Document retrieval / embeddings discovery
 

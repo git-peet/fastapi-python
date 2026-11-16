@@ -522,3 +522,189 @@ def test_other_user_cannot_triage_conversation(
 
     assert response.status_code == 403
     assert fake.calls == 0
+
+
+# --- Conversation search and bounded pagination tests ---
+
+def test_list_conversations_bounded_pagination(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    owner_id = _current_user_id(client, normal_user_token_headers)
+    for i in range(15):
+        create_random_conversation(db, owner_id=owner_id, title=f"Conv {i}")
+
+    # Default page size is 100, so all 15 should appear.
+    response = client.get(
+        f"{settings.API_V1_STR}/conversations/",
+        headers=normal_user_token_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["count"] == 15
+    assert len(response.json()["data"]) == 15
+
+    # Cap limit at 100; a request with limit > 100 should be rejected.
+    response = client.get(
+        f"{settings.API_V1_STR}/conversations/?limit=101",
+        headers=normal_user_token_headers,
+    )
+    assert response.status_code == 422
+
+    # Skip must be >= 0.
+    response = client.get(
+        f"{settings.API_V1_STR}/conversations/?skip=-1",
+        headers=normal_user_token_headers,
+    )
+    assert response.status_code == 422
+
+
+def test_search_conversations_is_owner_scoped(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    owner_id = _current_user_id(client, normal_user_token_headers)
+    create_random_conversation(db, owner_id=owner_id, title="Alpha project")
+    create_random_conversation(db, owner_id=owner_id, title="Beta project")
+    other_user = create_random_user(db)
+    assert other_user.id is not None
+    create_random_conversation(db, owner_id=other_user.id, title="Alpha secret")
+
+    response = client.post(
+        f"{settings.API_V1_STR}/conversations/search",
+        headers=normal_user_token_headers,
+        json={"query": "Alpha"},
+    )
+    assert response.status_code == 200
+    content = response.json()
+    assert content["count"] == 1
+    assert content["data"][0]["title"] == "Alpha project"
+
+
+def test_search_conversations_case_insensitive(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    owner_id = _current_user_id(client, normal_user_token_headers)
+    create_random_conversation(db, owner_id=owner_id, title="Project Alpha")
+    create_random_conversation(db, owner_id=owner_id, title="project beta")
+
+    for term in ["project", "Project", "PROJECT"]:
+        response = client.post(
+            f"{settings.API_V1_STR}/conversations/search",
+            headers=normal_user_token_headers,
+            json={"query": term},
+        )
+        assert response.status_code == 200
+        assert response.json()["count"] == 2
+
+
+def test_search_conversations_blank_query_is_unfiltered(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    owner_id = _current_user_id(client, normal_user_token_headers)
+    create_random_conversation(db, owner_id=owner_id, title="Alpha")
+    create_random_conversation(db, owner_id=owner_id, title="Beta")
+
+    for term in ["", "   ", "\t\n"]:
+        response = client.post(
+            f"{settings.API_V1_STR}/conversations/search",
+            headers=normal_user_token_headers,
+            json={"query": term},
+        )
+        assert response.status_code == 200
+        assert response.json()["count"] == 2
+        assert len(response.json()["data"]) == 2
+
+
+def test_search_conversations_count_matches_page_filter(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    owner_id = _current_user_id(client, normal_user_token_headers)
+    create_random_conversation(db, owner_id=owner_id, title="Alpha one")
+    create_random_conversation(db, owner_id=owner_id, title="Alpha two")
+    create_random_conversation(db, owner_id=owner_id, title="Beta one")
+
+    response = client.post(
+        f"{settings.API_V1_STR}/conversations/search",
+        headers=normal_user_token_headers,
+        json={"query": "Alpha"},
+    )
+    assert response.status_code == 200
+    content = response.json()
+    assert content["count"] == 2
+    assert len(content["data"]) == 2
+    for item in content["data"]:
+        assert "Alpha" in item["title"]
+
+
+def test_search_conversations_pagination_bounds(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    owner_id = _current_user_id(client, normal_user_token_headers)
+    for i in range(25):
+        create_random_conversation(db, owner_id=owner_id, title=f"Alpha {i}")
+
+    # First page with limit=10
+    response = client.post(
+        f"{settings.API_V1_STR}/conversations/search?limit=10",
+        headers=normal_user_token_headers,
+        json={"query": "Alpha"},
+    )
+    assert response.status_code == 200
+    content = response.json()
+    assert content["count"] == 25
+    assert len(content["data"]) == 10
+
+    # Second page
+    response = client.post(
+        f"{settings.API_V1_STR}/conversations/search?limit=10&skip=10",
+        headers=normal_user_token_headers,
+        json={"query": "Alpha"},
+    )
+    assert response.status_code == 200
+    content = response.json()
+    assert content["count"] == 25
+    assert len(content["data"]) == 10
+
+    # limit capped at 100
+    response = client.post(
+        f"{settings.API_V1_STR}/conversations/search?limit=101",
+        headers=normal_user_token_headers,
+        json={"query": "Alpha"},
+    )
+    assert response.status_code == 422
+
+    # skip < 0 rejected
+    response = client.post(
+        f"{settings.API_V1_STR}/conversations/search?skip=-1",
+        headers=normal_user_token_headers,
+        json={"query": "Alpha"},
+    )
+    assert response.status_code == 422
+
+
+def test_list_conversations_deterministic_ordering(
+    client: TestClient, normal_user_token_headers: dict[str, str], db: Session
+) -> None:
+    owner_id = _current_user_id(client, normal_user_token_headers)
+    c1 = create_random_conversation(db, owner_id=owner_id, title="Same time")
+    c2 = create_random_conversation(db, owner_id=owner_id, title="Same time")
+
+    response = client.get(
+        f"{settings.API_V1_STR}/conversations/",
+        headers=normal_user_token_headers,
+    )
+    assert response.status_code == 200
+    ids = [row["id"] for row in response.json()["data"]]
+    # Most recent first: higher created_at, then higher id. c2 was created after c1,
+    # so it should appear before c1.
+    assert ids == [str(c2.id), str(c1.id)]
+
+
+def test_search_validation_redacts_query(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        f"{settings.API_V1_STR}/conversations/search?limit=101",
+        headers=normal_user_token_headers,
+        json={"query": "PRIVATE-SEARCH-TERM"},
+    )
+    assert response.status_code == 422
+    assert "PRIVATE-SEARCH-TERM" not in response.text

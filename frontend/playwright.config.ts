@@ -1,12 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
-import 'dotenv/config'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173'
-
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -35,6 +29,15 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     { name: 'setup', testMatch: /.*\.setup\.ts/ },
+
+    {
+      name: 'conversations',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: { cookies: [], origins: [] },
+      },
+      testMatch: /conversations\.spec\.ts/,
+    },
 
     {
       name: 'chromium',

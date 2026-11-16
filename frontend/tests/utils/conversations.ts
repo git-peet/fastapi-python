@@ -44,6 +44,7 @@ export async function mockConversationApi(page: Page) {
   let delayTriage = false
   let failList = false
   let delayList = false
+  let failSearch = false
 
   await page.addInitScript(() => {
     if (!sessionStorage.getItem("pbi4-auth-initialized")) {
@@ -81,8 +82,18 @@ export async function mockConversationApi(page: Page) {
         })
         return
       }
-      const data = records.filter((row) => row.owner_id === owner.id)
-      await route.fulfill({ json: { data, count: data.length } })
+      const skip = Number(url.searchParams.get("skip") ?? 0)
+      const limit = Number(url.searchParams.get("limit") ?? 100)
+      const owned = records
+        .filter((row) => row.owner_id === owner.id)
+        .sort((a, b) => {
+          const timeOrder = (b.created_at ?? "").localeCompare(
+            a.created_at ?? "",
+          )
+          return timeOrder || b.id.localeCompare(a.id)
+        })
+      const data = owned.slice(skip, skip + limit)
+      await route.fulfill({ json: { data, count: owned.length } })
       return
     }
 
@@ -99,6 +110,27 @@ export async function mockConversationApi(page: Page) {
       )
       records.push(created)
       await route.fulfill({ json: created })
+      return
+    }
+
+    if (path === "/api/v1/conversations/search" && method === "POST") {
+      if (failSearch) {
+        await route.fulfill({
+          status: 503,
+          json: { detail: "Search unavailable" },
+        })
+        return
+      }
+      const skip = Number(url.searchParams.get("skip") ?? 0)
+      const limit = Number(url.searchParams.get("limit") ?? 100)
+      const body = request.postDataJSON() as { query?: string }
+      const term = (body.query ?? "").trim().toLowerCase()
+      const ownerRows = records.filter((row) => row.owner_id === owner.id)
+      const filtered = term
+        ? ownerRows.filter((row) => row.title.toLowerCase().includes(term))
+        : ownerRows
+      const data = filtered.slice(skip, skip + limit)
+      await route.fulfill({ json: { data, count: filtered.length } })
       return
     }
 
@@ -189,6 +221,9 @@ export async function mockConversationApi(page: Page) {
     },
     setDelayList(value: boolean) {
       delayList = value
+    },
+    setFailSearch(value: boolean) {
+      failSearch = value
     },
   }
 }

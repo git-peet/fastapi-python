@@ -1,7 +1,8 @@
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -24,33 +25,105 @@ from app.services.triage import (
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
+# Bounded pagination contract shared by the list and search routes.
+MAX_PAGE_SIZE = 100
+DEFAULT_PAGE_SIZE = 100
+
+SkipParam = Annotated[int, Query(ge=0)]
+LimitParam = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
+
 
 def get_triage_client() -> TriageClient:
     """Provide the deterministic fake until a separate provider PBI is approved."""
     return FakeTriageClient()
 
 
+class ConversationSearchRequest(BaseModel):
+    """Search request. The raw term lives in the request body, never the URL."""
+
+    query: str = Field(default="", max_length=255)
+
+
+def _title_filter(query: str):
+    """Match a literal case-insensitive substring, escaping SQL LIKE syntax."""
+    escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return col(Conversation.title).ilike(f"%{escaped}%", escape="\\")
+
+
+def _owner_count(
+    session: SessionDep, current_user: CurrentUser, query: str | None
+) -> int:
+    count_statement = select(func.count()).select_from(Conversation).where(
+        Conversation.owner_id == current_user.id
+    )
+    if query:
+        count_statement = count_statement.where(_title_filter(query))
+    return session.exec(count_statement).one()
+
+
+def _owner_page(
+    session: SessionDep,
+    current_user: CurrentUser,
+    query: str | None,
+    skip: int,
+    limit: int,
+) -> list[Conversation]:
+    statement = select(Conversation).where(
+        Conversation.owner_id == current_user.id
+    )
+    if query:
+        statement = statement.where(_title_filter(query))
+    statement = (
+        statement.order_by(
+            col(Conversation.created_at).desc(), col(Conversation.id).desc()
+        ).offset(skip).limit(limit)
+    )
+    return session.exec(statement).all()
+
+
+def _search_term(query: str | None) -> str | None:
+    """Normalize the search term; blank or whitespace means unfiltered."""
+    if query is None:
+        return None
+    normalized = query.strip()
+    return normalized or None
+
+
 @router.get("/", response_model=ConversationsPublic)
 def read_conversations(
-    session: SessionDep, current_user: CurrentUser, skip: int = 0, limit: int = 100
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: SkipParam = 0,
+    limit: LimitParam = DEFAULT_PAGE_SIZE,
 ) -> Any:
     """
-    Retrieve conversations owned by the current user.
+    Retrieve conversations owned by the current user, bounded and deterministic.
     """
-    count_statement = (
-        select(func.count())
-        .select_from(Conversation)
-        .where(Conversation.owner_id == current_user.id)
-    )
-    count = session.exec(count_statement).one()
-    statement = (
-        select(Conversation)
-        .where(Conversation.owner_id == current_user.id)
-        .order_by(col(Conversation.created_at).desc())
-        .offset(skip)
-        .limit(limit)
-    )
-    conversations = session.exec(statement).all()
+    count = _owner_count(session, current_user, None)
+    conversations = _owner_page(session, current_user, None, skip, limit)
+
+    conversations_public = [
+        ConversationPublic.model_validate(c) for c in conversations
+    ]
+    return ConversationsPublic(data=conversations_public, count=count)
+
+
+@router.post("/search", response_model=ConversationsPublic)
+def search_conversations(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: ConversationSearchRequest = Body(default_factory=ConversationSearchRequest),
+    skip: SkipParam = 0,
+    limit: LimitParam = DEFAULT_PAGE_SIZE,
+) -> Any:
+    """
+    Search the current user's conversation titles. The term is sent in the
+    request body so it never appears in the URL; pagination is bounded.
+    """
+    term = _search_term(body.query)
+    count = _owner_count(session, current_user, term)
+    conversations = _owner_page(session, current_user, term, skip, limit)
 
     conversations_public = [
         ConversationPublic.model_validate(c) for c in conversations

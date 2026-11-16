@@ -35,6 +35,104 @@ export type Body_login_login_access_token = {
 };
 
 /**
+ * ConversationCreate
+ */
+export type ConversationCreate = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Transcript
+     */
+    transcript: string;
+};
+
+/**
+ * ConversationIntent
+ */
+export type ConversationIntent = 'question' | 'request' | 'complaint' | 'feedback' | 'other';
+
+/**
+ * ConversationNextAction
+ */
+export type ConversationNextAction = 'respond' | 'ask_clarifying_question' | 'investigate' | 'escalate' | 'no_action';
+
+/**
+ * ConversationPublic
+ */
+export type ConversationPublic = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Transcript
+     */
+    transcript: string;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+    /**
+     * Triage Summary
+     */
+    triage_summary?: string | null;
+    triage_intent?: ConversationIntent | null;
+    triage_sentiment?: ConversationSentiment | null;
+    triage_next_action?: ConversationNextAction | null;
+    /**
+     * Triaged At
+     */
+    triaged_at?: string | null;
+};
+
+/**
+ * ConversationSentiment
+ */
+export type ConversationSentiment = 'positive' | 'neutral' | 'negative';
+
+/**
+ * ConversationUpdate
+ */
+export type ConversationUpdate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Transcript
+     */
+    transcript?: string | null;
+};
+
+/**
+ * ConversationsPublic
+ */
+export type ConversationsPublic = {
+    /**
+     * Data
+     */
+    data: Array<ConversationPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
  * HTTPValidationError
  */
 export type HTTPValidationError = {
@@ -349,6 +447,47 @@ export type ValidationError = {
         [key: string]: unknown;
     };
 };
+
+export type ConversationSearchRequest = {
+    /**
+     * Search term for titles (case-insensitive substring)
+     */
+    query?: string;
+};
+
+export type conversationsSearchConversationsData = {
+    body: ConversationSearchRequest;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/conversations/search';
+};
+
+export type conversationsSearchConversationsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type conversationsSearchConversationsError = conversationsSearchConversationsErrors[keyof conversationsSearchConversationsErrors];
+
+export type conversationsSearchConversationsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConversationsPublic;
+};
+
+export type conversationsSearchConversationsResponse = conversationsSearchConversationsResponses[keyof conversationsSearchConversationsResponses];
 
 export type loginLoginAccessTokenData = {
     body: Body_login_login_access_token;
@@ -928,6 +1067,185 @@ export type itemsUpdateItemResponses = {
 };
 
 export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
+
+export type conversationsReadConversationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/conversations/';
+};
+
+export type conversationsReadConversationsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type conversationsReadConversationsError = conversationsReadConversationsErrors[keyof conversationsReadConversationsErrors];
+
+export type conversationsReadConversationsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConversationsPublic;
+};
+
+export type conversationsReadConversationsResponse = conversationsReadConversationsResponses[keyof conversationsReadConversationsResponses];
+
+export type conversationsCreateConversationData = {
+    body: ConversationCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conversations/';
+};
+
+export type conversationsCreateConversationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type conversationsCreateConversationError = conversationsCreateConversationErrors[keyof conversationsCreateConversationErrors];
+
+export type conversationsCreateConversationResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConversationPublic;
+};
+
+export type conversationsCreateConversationResponse = conversationsCreateConversationResponses[keyof conversationsCreateConversationResponses];
+
+export type conversationsDeleteConversationData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{id}';
+};
+
+export type conversationsDeleteConversationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type conversationsDeleteConversationError = conversationsDeleteConversationErrors[keyof conversationsDeleteConversationErrors];
+
+export type conversationsDeleteConversationResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type conversationsDeleteConversationResponse = conversationsDeleteConversationResponses[keyof conversationsDeleteConversationResponses];
+
+export type conversationsReadConversationData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{id}';
+};
+
+export type conversationsReadConversationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type conversationsReadConversationError = conversationsReadConversationErrors[keyof conversationsReadConversationErrors];
+
+export type conversationsReadConversationResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConversationPublic;
+};
+
+export type conversationsReadConversationResponse = conversationsReadConversationResponses[keyof conversationsReadConversationResponses];
+
+export type conversationsUpdateConversationData = {
+    body: ConversationUpdate;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{id}';
+};
+
+export type conversationsUpdateConversationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type conversationsUpdateConversationError = conversationsUpdateConversationErrors[keyof conversationsUpdateConversationErrors];
+
+export type conversationsUpdateConversationResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConversationPublic;
+};
+
+export type conversationsUpdateConversationResponse = conversationsUpdateConversationResponses[keyof conversationsUpdateConversationResponses];
+
+export type conversationsTriageConversationData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{id}/triage';
+};
+
+export type conversationsTriageConversationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type conversationsTriageConversationError = conversationsTriageConversationErrors[keyof conversationsTriageConversationErrors];
+
+export type conversationsTriageConversationResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConversationPublic;
+};
+
+export type conversationsTriageConversationResponse = conversationsTriageConversationResponses[keyof conversationsTriageConversationResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

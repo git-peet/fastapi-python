@@ -49,6 +49,9 @@ async def validation_exception_handler(
     for error in errors:
         if "transcript" in error.get("loc", ()):
             error.pop("input", None)
+        # Search term lives only in the request body, never the URL or logs.
+        if "query" in error.get("loc", ()):
+            error.pop("input", None)
     return JSONResponse(
         status_code=422,
         content=jsonable_encoder({"detail": errors}),

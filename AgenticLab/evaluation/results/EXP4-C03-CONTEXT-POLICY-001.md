@@ -1,8 +1,8 @@
 # EXP4-C03-CONTEXT-POLICY-001 — Context-source policy calibration
 
-- **Status:** Fresh-Pi smoke complete; orientation-layer follow-up implemented and unit-tested; fresh-Pi verification of that follow-up pending
+- **Status:** Fresh-Pi selector/guard smoke and validation-only PBI2 plan/implement run complete; implementation gates resolved
 - **Prepared:** 2026-11-11T12:39:47+01:00
-- **Updated:** 2026-11-12T07:19:34+01:00
+- **Updated:** 2026-11-13T17:19:13+01:00
 - **Workspace:** `/home/peet/Projects/exp4/`
 - **Scope:** exp4 `/plan` and `/implement` context-selection prototype only; default-work guidance is deferred
 - **Privacy:** This report contains summarized observations only. It does not copy prompts, transcripts, source text, queries, claims, or raw metric values.
@@ -92,5 +92,64 @@ For these narrow plan/implement paths, the mechanism has positive evidence: the 
 - Regression coverage now includes blocked-outcome metrics, selector event recording (including metrics-storage failure), plan/clarification state transitions, shell blocking, and unaffected reads/workflow switches.
 - Validation before orientation follow-up: 16 Node tests passed; edited `.mjs` files passed `node --check`; `git diff --check` passed. A fresh Pi smoke then verified extension loading, selector/recorder operation, and blocked shell execution.
 - Orientation follow-up: added `projectOrientationNeeded` to the selector and Pi tool; `/plan` and `/implement` now set it when fresh-session guidance requires checking the project overview. Bootstrap still includes the layer automatically. Regression tests cover explicit inclusion, omission, and bootstrap inclusion.
-- Validation after orientation follow-up: 17 Node tests passed; edited `.mjs` files passed `node --check`; `git diff --check` passed. A fresh Pi smoke is still needed to verify the new signal end-to-end.
+- Validation after orientation follow-up: 18 Node tests passed; edited `.mjs` files passed `node --check`; `git diff --check` passed. A fresh Pi smoke confirmed orientation selection, actual source metrics, and the approval gates.
 - Unit tests used temporary workspaces; no metrics were emitted to exp4's live `.pi/metrics/agenticlab.jsonl` by those tests.
+
+## PBI2 validation-only plan/implement run — final gate check
+
+- **Validation:** The fresh Pi `/implement` run reported 22/22 Conversation CRUD API tests passed via `backend/scripts/test-isolated.sh` with a fresh disposable SQLite database; it reported cleanup on exit and no source/configuration changes.
+- **Knowledge:** No handoff candidates; no knowledge records changed. The approved checkpoint was deleted only after the user's explicit B disposition. The user declined the separate implementation-log write.
+- **Metrics:** The live JSONL snapshot was 164 rows. The plan and implementation phases emitted selected/used source events, stop-rule evaluations (`true` during plan, `false` during implementation), and `context_assembly_complete` with `complete` outcomes. A retrieval-success event was recorded for the relevant PBI2 context. The implementation used `approved_plan` context.
+- **Source-attribution note:** The plan's selected-source event included `project_orientation`, while its actual-used event did not, despite the plan report saying the overview was read. The implementation-phase selected/used lists aligned. This may reflect whether the overview materially informed the plan; keep it as an attribution question rather than a retrieval or test failure.
+- **Gate result:** The fresh Pi flow asked A/B, waited for the explicit checkpoint choice, then separately asked about the implementation log. Both were resolved as intended.
+
+## Workflow findings — first marked PBI7 plan run
+
+- `EXP4-C03-PBI7-001` marked a real PBI7 `/plan` and `/implement` run. The first plan required mid-flow corrections: the marker was not carried into the plan from the PBI entry, scope conflicted with outcome, one frontend route path was incorrect, validation commands were not source-verified, and open design choices were presented as closed.
+- The user supplied targeted correction guidance mid-run; planning stayed read-only and no checkpoint was written during the first approval gate.
+- Recorded as a qualitative workflow finding only; metrics content-free.
+
+## Opt-in C03 evaluation card format
+
+A card is created only for a real plan/implement task whose user context contains a unique `C03-EVAL-ID`. It is appended after implementation validation and the approved workflow gates; no card is emitted for unmarked tasks.
+
+```markdown
+### C03-EVAL-ID: <stable-run-id>
+- Date / task: <date, PBI or task ID>
+- Workflow phases: <plan, implement, or both>
+- Checkpoint/log decisions: <kept or deleted; implementation-log approved or declined>
+- Selected sources: <source-layer IDs>
+- Actually used sources: <source-layer IDs>
+- Retrieval: <status, complete flag, match/filter counts, or not_requested>
+- Stop rule / assembly: <true|false|unknown; outcome>
+- Validation: <named check and pass/fail/count, or not_run>
+- Handoffs: <none or counts/dispositions only>
+- Clarifications / approvals / blocked actions: <counts, separated by type>
+- Q1 source usefulness: <yes|partial|no|unclear> — <brief content-free reason>
+- Q2 missing or irrelevant context: <none|missing|irrelevant|mixed|unclear>
+- Q3 cheaper derivation from current source: <yes|no|unclear>
+- Q4 handoff traceable/non-duplicate: <pass|fail|none|unclear>
+- Q5 interruptions: <counts and required/unnecessary/unclear assessment>
+```
+
+Use current workflow tool results and metric arguments; never read or copy raw JSONL records into the card. Do not include prompts, transcripts, source text, queries, claims, secrets, or customer data. Mark unavailable evidence as `unclear`/`unknown`; do not infer. `C03-EVAL-ID` authorizes only this one sanitized evaluation-card append in the approved plan scope.
+
+<!-- C03-EVAL-CARDS -->
+
+### C03-EVAL-ID: EXP4-C03-PBI7-001
+- Date / task: 2026-11-16, PBI 7 — owner-scoped conversation search and pagination
+- Workflow phases: plan and implement
+- Checkpoint/log decisions: deleted after explicit B approval; implementation log approved and written
+- Selected sources: `user_request`, `operating_instructions`, `current_source`, `project_knowledge`, `project_orientation`, `workflow_prompt`, `approved_plan`, `task_local_handoff`
+- Actually used sources: `user_request`, `operating_instructions`, `current_source`, `project_knowledge`, `project_orientation`, `workflow_prompt`, `approved_plan`, `task_local_handoff` (phase metrics varied; listed as aggregate)
+- Retrieval: filtered; complete; the task-local risk candidate exact-ID check returned 0 matches and 17 filtered records
+- Stop rule / assembly: true; plan assembly complete; implementation assemblies complete/filtered
+- Validation: backend isolated API tests 30 passed; focused non-writing Biome check passed; TypeScript check failed on existing auth-hook type errors in the detail route; Playwright not run
+- Handoffs: 1 proposed; 0 staged/promoted/rejected; 1 remains task-local pending user choice
+- Clarifications / approvals / blocked actions: clarifications 0; required approvals 4; unexpected/blocked validation interruption 1
+- Q1 source usefulness: yes — source and scoped knowledge informed implementation and isolated validation
+- Q2 missing or irrelevant context: mixed — safe, environment-isolated UI test path unavailable; existing unrelated type errors surfaced
+- Q3 cheaper derivation from current source: yes — primary feature contracts were available in current source
+- Q4 handoff traceable/non-duplicate: unclear — provenance is traceable; filtered retrieval limits duplicate certainty
+- Q5 interruptions: clarification 0; required approvals 4; unexpected/repeated interruptions 1
+

@@ -200,3 +200,152 @@ test.describe("Conversations", () => {
     ).not.toBeVisible()
   })
 })
+
+test("searches conversation titles and resets pagination when the query changes", async ({
+  page,
+}) => {
+  const api = await mockConversationApi(page)
+  api.records.push(
+    makeConversation(
+      userA.id,
+      "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa",
+      "Project Alpha kickoff",
+    ),
+    makeConversation(
+      userA.id,
+      "aaaaaaaa-2222-4222-8222-aaaaaaaaaaaa",
+      "Project Beta review",
+    ),
+    makeConversation(
+      userA.id,
+      "aaaaaaaa-3333-4333-8333-aaaaaaaaaaaa",
+      "Personal notes",
+    ),
+  )
+
+  await page.goto("/conversations")
+  await expect(page.getByText("Project Alpha kickoff")).toBeVisible()
+  await expect(page.getByText("Project Beta review")).toBeVisible()
+  await expect(page.getByText("Personal notes")).toBeVisible()
+
+  await page.getByLabel("Search conversation titles").fill("Project")
+  await page.getByRole("button", { name: "Search" }).click()
+
+  await expect(page.getByText("Project Alpha kickoff")).toBeVisible()
+  await expect(page.getByText("Project Beta review")).toBeVisible()
+  await expect(page.getByText("Personal notes")).not.toBeVisible()
+  await expect(page.getByText('Results for "Project" (2)')).toBeVisible()
+
+  await page.getByLabel("Search conversation titles").fill("Beta")
+  await page.getByRole("button", { name: "Search" }).click()
+
+  await expect(page.getByText("Project Beta review")).toBeVisible()
+  await expect(page.getByText("Project Alpha kickoff")).not.toBeVisible()
+  await expect(page.getByText('Results for "Beta" (1)')).toBeVisible()
+})
+
+test("searches case-insensitively", async ({ page }) => {
+  const api = await mockConversationApi(page)
+  api.records.push(
+    makeConversation(
+      userA.id,
+      "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa",
+      "Project Alpha kickoff",
+    ),
+  )
+
+  await page.goto("/conversations")
+  await page.getByLabel("Search conversation titles").fill("project")
+  await page.getByRole("button", { name: "Search" }).click()
+
+  await expect(page.getByText("Project Alpha kickoff")).toBeVisible()
+  await expect(page.getByText('Results for "project" (1)')).toBeVisible()
+})
+
+test("shows a search error and lets the user retry", async ({ page }) => {
+  const api = await mockConversationApi(page)
+  api.records.push(
+    makeConversation(
+      userA.id,
+      "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa",
+      "Project Alpha kickoff",
+    ),
+  )
+  api.setFailSearch(true)
+
+  await page.goto("/conversations")
+  await page.getByLabel("Search conversation titles").fill("Project")
+  await page.getByRole("button", { name: "Search" }).click()
+
+  await expect(
+    page.getByText("Conversations could not be loaded."),
+  ).toBeVisible()
+
+  api.setFailSearch(false)
+  await page.getByRole("button", { name: "Retry" }).click()
+  await expect(page.getByText("Project Alpha kickoff")).toBeVisible()
+})
+
+test("shows no results when the query matches nothing", async ({ page }) => {
+  const api = await mockConversationApi(page)
+  api.records.push(
+    makeConversation(
+      userA.id,
+      "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa",
+      "Project Alpha kickoff",
+    ),
+  )
+
+  await page.goto("/conversations")
+  await page.getByLabel("Search conversation titles").fill("zzz")
+  await page.getByRole("button", { name: "Search" }).click()
+
+  await expect(page.getByText("No conversations yet")).toBeVisible()
+  await expect(page.getByText('Results for "zzz" (0)')).toBeVisible()
+})
+
+test("does not leak the search term into the URL", async ({ page }) => {
+  const api = await mockConversationApi(page)
+  api.records.push(
+    makeConversation(
+      userA.id,
+      "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa",
+      "Project Alpha kickoff",
+    ),
+  )
+
+  await page.goto("/conversations")
+  await page.getByLabel("Search conversation titles").fill("Project")
+  await page.getByRole("button", { name: "Search" }).click()
+
+  await expect(page.getByText("Project Alpha kickoff")).toBeVisible()
+  const url = page.url()
+  expect(url).not.toContain("Project")
+  expect(url).not.toContain("search")
+})
+
+test("paginates the conversation list with bounded pages", async ({ page }) => {
+  const api = await mockConversationApi(page)
+  for (let i = 0; i < 21; i++) {
+    api.records.push(
+      makeConversation(
+        userA.id,
+        `aaaaaaaa-${String(i).padStart(4, "0")}-4000-8000-aaaaaaaaaaaa`,
+        `Conversation ${String(i).padStart(2, "0")}`,
+      ),
+    )
+  }
+
+  await page.goto("/conversations")
+  await expect(page.getByText("Page 1 of 2")).toBeVisible()
+  await expect(page.getByText("Conversation 00")).toBeVisible()
+  await expect(page.getByText("Conversation 20")).not.toBeVisible()
+
+  await page.getByRole("button", { name: "Next" }).click()
+  await expect(page.getByText("Page 2 of 2")).toBeVisible()
+  await expect(page.getByText("Conversation 20")).toBeVisible()
+  await expect(page.getByText("Conversation 00")).not.toBeVisible()
+
+  await page.getByRole("button", { name: "Previous" }).click()
+  await expect(page.getByText("Page 1 of 2")).toBeVisible()
+})
