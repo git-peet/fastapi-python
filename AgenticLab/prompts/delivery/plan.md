@@ -11,9 +11,9 @@ argument-hint: "[PBI or task context]"
 
 Use this workflow only when the user explicitly invokes `/plan` or approves a recommendation to use it. A PBI or acceptance criteria alone does not imply workflow invocation. If the requested outcome is research/findings only, stay in default work unless the user asks for a research plan.
 
-This workflow produces a reviewable implementation plan. It does not implement code, run commands/tests, persist knowledge, or authorize a later mutating step. `/implement` is a separate user-invoked transition.
+This workflow produces a reviewable implementation plan. It does not implement code, run tests, builds, validation commands, persist knowledge, or authorize a later mutating step. The guard permits read-only `ls`/`find` listings for navigation; report those separately from validation or mutating commands. `/implement` is a separate user-invoked transition.
 
-When describing scope, distinguish **this planning session** from the **proposed future implementation**. State that no files were changed or commands run during planning, then separately list the files/actions proposed for implementation and the true out-of-scope areas. Do not put "no edits during planning" in the future implementation's excluded scope unless the PBI itself forbids edits.
+When describing scope, distinguish **this planning session** from the **proposed future implementation**. State that no files were changed and no tests, builds, validation commands, or mutating commands were run; report any permitted read-only `ls`/`find` listings separately. Then list the files/actions proposed for implementation and the true out-of-scope areas. Do not put "no edits during planning" in the future implementation's excluded scope unless the PBI itself forbids edits.
 
 ## Authorization preflight — READ THIS BEFORE PROCEEDING
 
@@ -40,7 +40,7 @@ Identify:
 
 Ask only for information that blocks a safe, useful plan. Group related blocking questions into one concise clarification. Do not require a numeric effort score or an artificial checklist where an item is inapplicable.
 
-**Proactive config read:** Before listing requirements, the agent should read `package.json` (for test runners) and `AgenticLab/adapters/pi/tests/` (for existing test files) from the workspace root. If the PBI references a test target or new module, verify against these known paths; do not enumerate directories. This avoids the need for user prompts when conventions are documented.
+**Validation-target discovery:** When a plan includes test or validation targets, verify them against the relevant project's manifest/configuration and existing test paths. For exp4 AgenticLab adapter changes, consult the root `package.json` and `AgenticLab/adapters/pi/tests/`; for application work, inspect the relevant application's own configuration and test surface instead. Use permitted read-only listings only as needed, and do not inspect unrelated test directories or require directory enumeration when targets are already specified.
 
 ## 2. Inspect proportionately
 
@@ -121,7 +121,7 @@ The preflight is read-only: it does not execute validation commands or rewrite t
 
 If a decision materially blocks a safe plan, pause and ask the focused question before finalizing. Otherwise present the complete plan, including validation and the task-local learning handoff, and ask one consolidated question:
 
-Before approval, do one concise consistency check against inspected source/docs: every proposed command must use an existing target and the documented runner, show its exact one-line invocation, working directory, required one-shot environment, and cleanup/side effects. Prefer the project's isolated runner for database tests; do not invent test paths or use bare pytest when a dedicated runner is required. Reconcile proposed edits with scope/exclusions (planning-session no-edit/no-test limits do not automatically prohibit future implementation validation), and do not say “None” while material decisions remain open. Keep reusable handoff candidates source-checked and non-duplicative; otherwise use `None`. Do not execute commands during planning; if a needed detail cannot be verified from inspected evidence, state the assumption or ask one focused question.
+Before approval, do one concise consistency check against inspected source/docs: ensure each proposed command has an existing target and documented runner, and show its exact one-line invocation, working directory, required one-shot environment, and cleanup/side effects. The preflight verifies supported command forms and target existence; this final review checks environment, side effects, and consistency with scope. Prefer the project's isolated runner for database tests; do not invent test paths or use bare pytest when a dedicated runner is required. Reconcile proposed edits with scope/exclusions (planning-session limits do not automatically prohibit future implementation validation), and do not say “None” while material decisions remain open. Keep reusable handoff candidates source-checked and non-duplicative; otherwise use `None`. Do not run tests, builds, validation commands, or mutating commands during planning; permitted read-only `ls`/`find` listings may be used for navigation and should be reported. If a needed detail cannot be verified from inspected evidence, state the assumption or ask one focused question.
 
 > Do you approve this plan and authorize writing its transient `plan-checkpoint.json` handoff? This authorizes only the approved plan and checkpoint; implementation still requires a separate explicit `/implement` invocation.
 
@@ -136,7 +136,7 @@ Do not add a second design-approval prompt after the complete plan unless a mate
 [Plain-language result and acceptance criteria]
 
 ### Scope
-**Planning session:** [evidence inspected; state that no edits/commands/tests/persistence occurred]
+**Planning session:** [evidence inspected; state that no files changed, tests/builds/validation or mutating commands ran, and note any permitted read-only listings separately]
 
 **Proposed implementation scope (not authorized until `/implement`):** [included files/actions and explicit exclusions]
 
@@ -162,4 +162,4 @@ If approved, write `AgenticLab/knowledge/checkpoints/plan-checkpoint.json` as a 
 
 ## Scope and limitations
 
-This is a planning-only workflow. It produces a reviewable plan and, after explicit approval, may write its approved transient checkpoint. It does not implement application changes, run commands or tests, persist durable knowledge, or invoke another workflow automatically. `/implement` and `/premortem` remain separately invoked workflows; no automatic router is provided.
+This is a planning-only workflow. It produces a reviewable plan and, after explicit approval, may write its approved transient checkpoint. It does not implement application changes, run tests, builds, validation commands, persist durable knowledge, or invoke another workflow automatically. The guard permits read-only `ls`/`find` listings for navigation; these should be reported separately. `/implement` and `/premortem` remain separately invoked workflows; no automatic router is provided.
