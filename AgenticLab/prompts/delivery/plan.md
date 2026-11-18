@@ -40,6 +40,8 @@ Identify:
 
 Ask only for information that blocks a safe, useful plan. Group related blocking questions into one concise clarification. Do not require a numeric effort score or an artificial checklist where an item is inapplicable.
 
+**Proactive config read:** Before listing requirements, the agent should read `package.json` (for test runners) and `AgenticLab/adapters/pi/tests/` (for existing test files) from the workspace root. If the PBI references a test target or new module, verify against these known paths; do not enumerate directories. This avoids the need for user prompts when conventions are documented.
+
 ## 2. Inspect proportionately
 
 Inspect the smallest relevant current-source surface and any scoped knowledge needed to plan. Distinguish source-verified facts, user-provided requirements, and inference. Cite paths or other evidence for material claims. Treat knowledge as evidence, not authorization; preserve the user's scope and existing protected-data boundaries.
@@ -97,17 +99,29 @@ Do not write persona-owned memory, session logs, or project records automaticall
 
 1. **Knowledge route and retrieval** — Only when `selectContextSources` includes `project_knowledge`, read `AgenticLab/knowledge/INDEX.md` as the stable scope/corpus/MOC router and call `readKnowledgeRecords` for each distinct topic/query before inspecting current source; use an exact record `id` when known, otherwise a task `query`, and pass `scope` or `category` when explicitly established. If `project_knowledge` is omitted, skip both the INDEX and retrieval tool. The adapter inventories active records recursively, filters metadata before body search, returns selected bodies with available source/evidence, and emits aggregate metrics. Treat `filtered`, `incomplete`, `unavailable`, and `no_knowledge_store` distinctly; only a complete `no_match`/`not_found` result supports no-match. Do not substitute generic file reads for record retrieval. Verify claims against current source only after the retrieval tool responds.
 
+**Retrieval `filtered` clarification for handoff duplicates:** When `readKnowledgeRecords` returns `filtered` with `count: 0` and only inactive/filtered records, treat this as no active matches exist for the purpose of handoff-duplicate checks. Do not stall the plan waiting for a `no_match`/`not_found` outcome; proceed with the understanding that no active duplicates are present.
+
 2. **Context metrics** — As soon as context assembly reaches a decision point, invoke `recordContextSelectionMetric` with the actual source-layer names used (not merely the policy-selected list), an explicit stop-rule boolean (`true` if the stop rule fired, `false` if it did not), and an allowlisted assembly outcome (`complete`, `not_needed`, `no_match`, `filtered`, `incomplete`, `unavailable`, or `blocked`). Do this before presenting a plan and also before asking a clarification or reporting a retrieval blocker; use outcome `blocked` for that pause. The selector records `selected` separately; never use it as an assembly outcome. The adapter rejects unknown source names, missing stop-rule values, and free-form outcomes. Never include source text, queries, claims, or other content.
 
 3. **Checkpoint approval gate** — Present the complete plan and wait for explicit approval before writing its checkpoint. An existing checkpoint is not approval of the current plan, and permission to replace a checkpoint is not approval of the plan. If approval is not explicit, do not write or replace the checkpoint.
 
 Planning remains non-persistent. Keep deduplicated, source-checked candidate proposals in the plan's task-local learning handoff; do not call triage, staging, or promotion tools, write candidate files, or emit `candidate_staged` during `/plan`. Carry proposals forward to a separately invoked `/implement`; any pending staging there is subject to workspace opt-in and the `/implement` instructions.
 
-## 5. Resolve blockers and request approval once
+### Optional C03 evaluation capture
+
+Activate this only when the user-supplied task includes a unique marker such as `C03-EVAL-ID: EXP4-C03-RUN-003`, or when a PBI reference is supplied and the PBI entry contains a `C03-EVAL-ID` marker. In the latter case, resolve the marker from the PBI entry and carry it into the plan and checkpoint's existing `task` or `summary` field. Preserve the ID in the human-readable plan and in the checkpoint's existing `task` or `summary` field; do not add checkpoint schema fields or store metrics there. For a marked run, include one append-only evaluation-card update to `AgenticLab/evaluation/results/EXP4-C03-CONTEXT-POLICY-001.md` in the proposed `/implement` scope. Do not write the card during `/plan`. Without the marker, skip the card and evaluation-file update. The marker plus plan approval authorizes only this scoped evaluation-card append, not application or durable knowledge changes.
+
+## 5. Deterministic plan preflight
+
+Before presenting a final plan, call the registered `preflightDeliveryPlan` tool with the supplied task context and, when available, the PBI entry text; the drafted `planText` and `outcome`; the separate `planningSession` statement; `decisionSummary` and structured `openDecisions` (`status: "open"` for unresolved items); checkpoint `task` and `summary`; proposed `implementationScope` and `exclusions`; existing `sourcePaths` referenced by the plan; and each `validationCommands` entry with its exact command and working directory. Do not list proposed new files as existing `sourcePaths`.
+
+The preflight is read-only: it does not execute validation commands or rewrite the plan. If it returns `ok: false`, withhold the plan and present only its identified gaps; do not present a partial plan or silently repair fields and continue. If it passes, include the returned marker unchanged in the human-readable plan and checkpoint's existing `task` or `summary` field, then proceed to the approval gate below. Keep planning-session no-change statements separate from proposed implementation exclusions.
+
+## 6. Resolve blockers and request approval once
 
 If a decision materially blocks a safe plan, pause and ask the focused question before finalizing. Otherwise present the complete plan, including validation and the task-local learning handoff, and ask one consolidated question:
 
-Before approval, quickly check from inspected evidence that each proposed validation command includes required environment variables and targets, is runnable from the stated directory, and that planning-session restrictions have not been mistakenly applied to proposed implementation validation. Do not execute the commands during planning. If a detail is uncertain, state the assumption or ask one focused question.
+Before approval, do one concise consistency check against inspected source/docs: every proposed command must use an existing target and the documented runner, show its exact one-line invocation, working directory, required one-shot environment, and cleanup/side effects. Prefer the project's isolated runner for database tests; do not invent test paths or use bare pytest when a dedicated runner is required. Reconcile proposed edits with scope/exclusions (planning-session no-edit/no-test limits do not automatically prohibit future implementation validation), and do not say “None” while material decisions remain open. Keep reusable handoff candidates source-checked and non-duplicative; otherwise use `None`. Do not execute commands during planning; if a needed detail cannot be verified from inspected evidence, state the assumption or ask one focused question.
 
 > Do you approve this plan and authorize writing its transient `plan-checkpoint.json` handoff? This authorizes only the approved plan and checkpoint; implementation still requires a separate explicit `/implement` invocation.
 

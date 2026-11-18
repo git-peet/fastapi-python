@@ -34,6 +34,7 @@ At the end of this workflow, report clearly:
 - **Validation**: Exact focused tests/checks run and their results; state anything blocked or not run.
 - **Knowledge disposition**: Counts and IDs staged to `knowledge-pending`, promoted to active knowledge, rejected/discarded, or left task-local/pending; if none, say no candidates were proposed or relevant. Always check `AgenticLab/knowledge/checkpoints/plan-checkpoint.json` for `handoff_candidates`—never infer silently. Summarize the relevant candidate IDs and dispositions; do not dump or repeat the full checkpoint JSON.
 - **Metrics**: Relevant content-free event types/count changes, interpreted alongside tool outcomes; do not treat event counts alone as proof of complete retrieval.
+- **C03 evaluation**: Only when the matching approved checkpoint's `task` or `summary` contains a `C03-EVAL-ID`, produce the opted-in evaluation card described below; otherwise skip all evaluation-card work.
 - **Checkpoint disposition**: Initially report as pending the user's A/B choice; after the user answers, report whether it was retained for `/premortem` or deleted after explicit approval. Never infer a choice from silence or from no deletion request.
 
 Do not delete `AgenticLab/knowledge/checkpoints/plan-checkpoint.json` during this workflow. Deletion requires explicit user approval after implementation completion. This gate applies to every `/implement` invocation, including test-/validation-only runs and runs with no source-file changes. You may report the task's implementation or validation as complete, but the `/implement` workflow remains pending until the user explicitly chooses A or B; no answer leaves the checkpoint unchanged.
@@ -84,3 +85,19 @@ After implementation completes and checkpoint disposition is handled, the workfl
    - The implementation remains complete and verified
 
 **Note:** This is an automated process with an explicit user approval gate. No additional prompts are required beyond this single approval step.
+
+### Opt-in C03 evaluation card
+
+Only create a card when the matching approved checkpoint contains a unique `C03-EVAL-ID` and its approved `inScope` includes `AgenticLab/evaluation/results/EXP4-C03-CONTEXT-POLICY-001.md`. The marker plus plan approval authorizes exactly one append to that evaluation artifact; it does not authorize application or knowledge writes. If the marker or scope entry is absent, skip the card. Do not write it during `/plan`.
+
+After validation and after checkpoint disposition and implementation-log approval are both resolved, build the card from this run's selector/metrics tool arguments and results, retrieval tool outcomes, validation output, and interaction state. Do not read raw `.pi/metrics/agenticlab.jsonl`. Record only:
+- C03-EVAL-ID, date, PBI/workload family, and workflow phases completed;
+- checkpoint disposition and implementation-log decision (`kept`/`deleted`/`approved`/`declined`);
+- selected and actually used source-layer IDs as separate lists;
+- retrieval status/completeness and aggregate match/filter counts, if retrieval ran;
+- stop-rule boolean, assembly outcome, and validation outcome/counts;
+- candidate handoff/disposition counts, without candidate claims;
+- Q1 source usefulness, Q2 missing/irrelevant context, Q3 cheaper derivation from current source, and Q4 handoff traceability as `yes`, `partial`, `no`, `unclear`, or `not_applicable`, with short content-free reason labels;
+- Q5 user-visible interruptions as counts by clarification, required approval, and unexpected/repeated interruption.
+
+Mark unavailable fields `unknown`; do not infer. Never copy prompts, transcripts, source text, queries, claims, secrets, customer data, or pending-candidate contents. Read the evaluation report to ensure the ID is not already present, then use Pi `edit` to append the card at the unique `<!-- C03-EVAL-CARDS -->` marker. Never rewrite the whole report. If the ID already exists, do not duplicate it; report that it is already recorded.

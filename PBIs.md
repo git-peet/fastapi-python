@@ -212,6 +212,8 @@ As a signed-in user, I want to mark whether a conversation's current triage was 
 
 **Status:** Candidate for review; not approved for implementation.
 
+**C03 evaluation marker for its first plan/implement run:** `C03-EVAL-ID: EXP4-C03-PBI10-001`. Include this exact marker in the explicit `/plan` task context to opt into one sanitized evaluation card under the approved plan scope; the marker does not authorize implementing this PBI.
+
 ### User story
 As a developer using the delivery workflows, I want a lightweight plan preflight before plan presentation to catch missing opt-in markers, scope/outcome conflicts, unverified validation targets, and inconsistent open-decision statements, so that a normal PBI plus an optional C03-EVAL-ID produces an accurate, reviewable plan in one pass.
 
@@ -225,6 +227,14 @@ As a developer using the delivery workflows, I want a lightweight plan preflight
 - If any preflight check fails, withhold the plan and present only the identified gaps.
 - Add regression tests for the preflight behavior without adding synthetic PBI stages.
 - Out of scope: permanent telemetry, automatic plan rewriting, or broad workflow re-architecture.
+
+### Implementation notes (not acceptance criteria)
+- **Test runner:** use the existing Node test runner, run from the exp4 repo root:
+  `node --test AgenticLab/adapters/pi/tests/*.test.mjs`
+- **New file:** `AgenticLab/adapters/pi/plan-preflight.mjs` — a standalone, deterministic preflight module with no synthetic PBI stages.
+- **Registration point:** Register the preflight through the existing delivery-workflow entry point (`context-policy-gate.mjs`, which registers `registerPlanShellGuard`). During `/implement`, wire the preflight alongside the shell guard in the same extension entry (`knowledge-write-gate.ts` loads both). Do not register via `knowledge-capture-tools.mjs` — that file owns knowledge-capture tools only.
+- **Preflight checks (minimum):** marker carried from PBI entry; outcome/scope/exclusions consistent; referenced source paths exist; referenced validation commands verified against package/config files; open decisions labeled open; C03 card append in `/implement` scope when marker present.
+- **Do not** add new test infrastructure, dev servers, or environment setup; reuse the existing Node test runner and existing test files only.
 
 ## Future Project 2 — Document retrieval / embeddings discovery
 

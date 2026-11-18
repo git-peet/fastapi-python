@@ -136,6 +136,24 @@ Use current workflow tool results and metric arguments; never read or copy raw J
 
 <!-- C03-EVAL-CARDS -->
 
+### C03-EVAL-ID: EXP4-C03-PBI10-001
+- Date / task: 2026-03-26, PBI 10 — deterministic delivery-plan preflight validator
+- Workflow phases: plan and implement
+- Checkpoint/log decisions: deleted after explicit B approval; implementation log approved
+- Selected sources: `user_request`, `operating_instructions`, `current_source`, `project_knowledge`, `workflow_prompt`, `approved_plan`, `task_local_handoff`
+- Actually used sources: `user_request`, `operating_instructions`, `current_source`, `project_knowledge`, `workflow_prompt`, `approved_plan`, `task_local_handoff`
+- Retrieval: filtered; complete; 0 matches in each of 2 retrievals; filtered counts 11 and 18
+- Stop rule / assembly: implementation assembly `false` / `filtered`; final assembly `true` / `complete`
+- Validation: `node --test AgenticLab/adapters/pi/tests/*.test.mjs` — final run 27 passed, 0 failed; initial run had 5 failures, corrected before rerun
+- Handoffs: none; 0 staged, promoted, or rejected
+- Clarifications / approvals / blocked actions: clarifications 0; required approvals 3; blocked actions 0
+- Q1 source usefulness: yes — current extension composition and existing test conventions informed the integration and checks
+- Q2 missing or irrelevant context: none — relevant integration, workflow, and test sources were available
+- Q3 cheaper derivation from current source: yes — registration and validation conventions were available in current source
+- Q4 handoff traceability: not_applicable — no handoff candidates
+- Q5 interruptions: clarification 0; required approvals 3; unexpected validation interruption 1 (initial test failures required correction)
+
+
 ### C03-EVAL-ID: EXP4-C03-PBI7-001
 - Date / task: 2026-11-16, PBI 7 — owner-scoped conversation search and pagination
 - Workflow phases: plan and implement
